@@ -15,3 +15,159 @@ body {
   color: #111111;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.current-month {
+  min-width: 1000px;
+  padding: 8px;
+}
+
+.current-month h1 {
+  margin: 12px 0 24px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.transaction-table {
+  border-collapse: separate;
+  border-spacing: 5px 0;
+}
+
+.transaction-table th {
+  padding: 0 5px 6px;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.transaction-table td {
+  padding: 2px 0;
+  vertical-align: middle;
+}
+
+.entry-row input,
+.entry-row select {
+  height: 32px;
+  border: none;
+  outline: none;
+  border-radius: 7px;
+  background: linear-gradient(
+    135deg,
+    #eeeeee 0%,
+    #f7f7f7 48%,
+    #ffffff 100%
+  );
+  padding: 0 10px;
+  color: #111111;
+}
+
+.entry-row input:focus,
+.entry-row select:focus {
+  background: #f2f2f2;
+}
+
+.entry-row select {
+  cursor: pointer;
+}
+
+.date-input {
+  width: 58px;
+}
+
+.entry-row td:nth-child(2) select {
+  width: 125px;
+}
+
+.entry-row td:nth-child(3) select {
+  width: 150px;
+}
+
+.entry-row td:nth-child(4) select {
+  width: 180px;
+}
+
+.entry-row td:nth-child(5) select {
+  width: 145px;
+}
+
+.amount-field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.currency-symbol {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.entry-row .amount-input {
+  width: 82px;
+  text-align: right;
+}
+
+.comments-input {
+  width: 220px;
+}
+
+.transaction-row td {
+  padding: 7px 10px;
+  font-size: 15px;
+}
+
+.transaction-row:nth-child(odd) td {
+  background: #fafafa;
+}
+
+.ledger-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.add-transaction {
+  margin-top: 10px;
+  border: none;
+  border-radius: 7px;
+  background: #eeeeee;
+  padding: 8px 14px;
+  color: #111111;
+  cursor: pointer;
+}
+
+.add-transaction:hover {
+  background: #e4e4e4;
+}
+
+.month-summary {
+  margin-top: 22px;
+}
+
+.month-summary h2 {
+  margin-bottom: 18px;
+  font-size: 24px;
+}
+
+.month-summary p {
+  margin: 14px 0;
+}
+
+.realized-value {
+  font-weight: 600;
+}
+
+.realized-value.neutral {
+  color: #111111;
+}
+
+.realized-value.positive {
+  color: #16a34a;
+}
+
+.realized-value.negative {
+  color: #dc2626;
+}
