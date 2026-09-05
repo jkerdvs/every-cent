@@ -22,6 +22,11 @@ select {
   font: inherit;
 }
 
+.app-shell {
+  min-height: 100vh;
+  padding-bottom: 58px;
+}
+
 .current-month {
   min-width: 1000px;
   padding: 8px;
@@ -170,4 +175,561 @@ select {
 
 .realized-value.negative {
   color: #dc2626;
+}
+
+.balance-sheet {
+  padding: 8px 48px 72px 8px;
+}
+
+.balance-sheet h1 {
+  margin: 12px 0 56px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 360px));
+  column-gap: 120px;
+  row-gap: 76px;
+}
+
+.balance-section h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.balance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.balance-table th {
+  background: #f1f1f1;
+  font-weight: 700;
+}
+
+.balance-table th,
+.balance-table td {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.balance-table th:last-child,
+.balance-table td:last-child {
+  text-align: right;
+}
+
+.balance-table tbody tr {
+  border-bottom: 1px solid #eeeeee;
+}
+
+.balance-table .net-row {
+  border-bottom: none;
+  font-weight: 700;
+}
+
+.ownership-page {
+  padding: 8px 48px 72px 8px;
+}
+
+.ownership-header {
+  margin: 12px 0 54px;
+}
+
+.ownership-header h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.ownership-header p {
+  margin: 12px 0 0;
+  color: #555555;
+  font-size: 15px;
+}
+
+.ownership-layout {
+  display: grid;
+  grid-template-columns: minmax(460px, 680px) minmax(260px, 360px);
+  gap: 96px;
+  align-items: start;
+}
+
+.portfolio-heading {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.portfolio-heading h2,
+.amount-invested h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.ownership-table,
+.invested-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.ownership-table th {
+  background: #f1f1f1;
+  font-weight: 700;
+}
+
+.ownership-table th,
+.ownership-table td,
+.invested-table td {
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.ownership-table th:nth-child(2),
+.ownership-table th:nth-child(3),
+.ownership-table td:nth-child(2),
+.ownership-table td:nth-child(3),
+.invested-table td:last-child {
+  text-align: right;
+}
+
+.ownership-table tbody tr,
+.invested-table tbody tr {
+  border-bottom: 1px solid #eeeeee;
+}
+
+.empty-holdings {
+  color: #777777;
+  text-align: left;
+}
+
+.net-added.positive {
+  color: #16a34a;
+}
+
+.net-added.negative {
+  color: #dc2626;
+}
+
+.net-added.neutral {
+  color: #555555;
+}
+
+.net-added-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.net-added-control input {
+  width: 74px;
+  height: 28px;
+  border: none;
+  outline: none;
+  border-radius: 7px;
+  background: #f7f7f7;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+}
+
+.net-added-control input:focus {
+  background: #eeeeee;
+}
+
+.net-added-control button {
+  width: 24px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #555555;
+  font: inherit;
+  cursor: pointer;
+}
+
+.net-added-control button:hover {
+  background: #f1f1f1;
+}
+
+.cost-basis-dollar {
+  margin-right: 5px;
+  font-weight: 600;
+}
+
+.add-equity {
+  display: grid;
+  grid-template-columns: minmax(90px, 120px) minmax(110px, 1fr) minmax(110px, 140px) minmax(120px, 150px) auto;
+  gap: 8px;
+  margin-top: 16px;
+  max-width: 700px;
+}
+
+.add-equity input,
+.add-equity select,
+.add-equity button {
+  height: 32px;
+  border: none;
+  outline: none;
+  border-radius: 7px;
+  background: linear-gradient(
+    135deg,
+    #eeeeee 0%,
+    #f7f7f7 48%,
+    #ffffff 100%
+  );
+  color: #111111;
+  font: inherit;
+}
+
+.add-equity input,
+.add-equity select {
+  padding: 0 10px;
+}
+
+.add-equity input:nth-child(2) {
+  text-align: right;
+}
+
+.add-cost-basis {
+  display: flex;
+  align-items: center;
+}
+
+.add-cost-basis input {
+  width: 100%;
+  text-align: right;
+}
+
+.add-equity button {
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.add-equity button:hover {
+  background: #e4e4e4;
+}
+
+.amount-invested h2 {
+  margin-bottom: 8px;
+}
+
+.invested-table .total-row {
+  border-bottom: none;
+  font-weight: 700;
+}
+
+.system-page {
+  min-width: 1450px;
+  padding: 8px 8px 72px;
+}
+
+.system-page h1 {
+  margin: 12px 0 32px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.system-table {
+  border-collapse: separate;
+  border-spacing: 5px 0;
+  font-size: 14px;
+}
+
+.system-table th {
+  padding: 0 5px 6px;
+  text-align: left;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.system-table td {
+  padding: 2px 0;
+  vertical-align: middle;
+}
+
+.system-entry-row input,
+.system-entry-row select {
+  height: 32px;
+  border: none;
+  outline: none;
+  border-radius: 7px;
+  background: linear-gradient(
+    135deg,
+    #eeeeee 0%,
+    #f7f7f7 48%,
+    #ffffff 100%
+  );
+  padding: 0 10px;
+  color: #111111;
+  font: inherit;
+}
+
+.system-entry-row input:focus,
+.system-entry-row select:focus {
+  background: #f2f2f2;
+}
+
+.system-entry-row input[type='checkbox'] {
+  width: 18px;
+  padding: 0;
+}
+
+.system-entry-row td:nth-child(1) input {
+  width: 125px;
+}
+
+.system-entry-row td:nth-child(2) select,
+.system-entry-row td:nth-child(5) select,
+.system-entry-row td:nth-child(7) select {
+  width: 74px;
+}
+
+.system-entry-row td:nth-child(3) input,
+.system-entry-row td:nth-child(6) input {
+  width: 72px;
+}
+
+.system-entry-row td:nth-child(4) input {
+  width: 82px;
+}
+
+.system-entry-row td:nth-child(8) select {
+  width: 110px;
+}
+
+.system-entry-row td:nth-child(9) input,
+.system-entry-row td:nth-child(10) input {
+  width: 140px;
+}
+
+.system-entry-row td:nth-child(14) input {
+  width: 260px;
+}
+
+.system-trade-row td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #eeeeee;
+  white-space: nowrap;
+}
+
+.add-trade {
+  margin-top: 10px;
+  border: none;
+  border-radius: 7px;
+  background: #eeeeee;
+  padding: 8px 14px;
+  color: #111111;
+  cursor: pointer;
+}
+
+.add-trade:hover {
+  background: #e4e4e4;
+}
+
+.totals-page {
+  padding: 8px 48px 72px 8px;
+}
+
+.totals-header {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin: 12px 0 42px;
+}
+
+.totals-header h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.totals-header button {
+  height: 32px;
+  border: none;
+  border-radius: 7px;
+  background: #eeeeee;
+  padding: 0 14px;
+  color: #111111;
+  cursor: pointer;
+  font: inherit;
+}
+
+.totals-header button:hover:not(:disabled) {
+  background: #e4e4e4;
+}
+
+.totals-header button:disabled {
+  color: #777777;
+  cursor: default;
+}
+
+.totals-section {
+  margin-bottom: 54px;
+}
+
+.totals-section > h2 {
+  margin: 0 0 18px;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.totals-month {
+  padding-top: 18px;
+  border-top: 1px solid #eeeeee;
+}
+
+.totals-month + .totals-month {
+  margin-top: 42px;
+}
+
+.totals-month-heading {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 22px;
+}
+
+.totals-month-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.totals-month-heading span {
+  color: #777777;
+  font-size: 14px;
+}
+
+.totals-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(440px, 620px) minmax(240px, 320px);
+  gap: 56px;
+  align-items: start;
+}
+
+.totals-layout h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.totals-on-month p {
+  margin: 10px 0;
+}
+
+.totals-realized.positive {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.totals-realized.negative {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.totals-realized.neutral {
+  color: #111111;
+  font-weight: 600;
+}
+
+.totals-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 28px 42px;
+}
+
+.totals-balance table,
+.totals-invested table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.totals-balance th {
+  background: #f1f1f1;
+  padding: 7px 9px;
+  text-align: left;
+}
+
+.totals-balance td,
+.totals-invested td {
+  padding: 7px 9px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.totals-balance td:last-child,
+.totals-invested td:last-child {
+  text-align: right;
+}
+
+.totals-net-row {
+  font-weight: 700;
+}
+
+.totals-net-row td {
+  border-bottom: none;
+}
+
+.totals-empty {
+  margin: 0;
+  color: #777777;
+}
+
+.sheet-tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 42px;
+  padding: 0 8px;
+  border-top: 1px solid #dddddd;
+  background: #ffffff;
+}
+
+.sheet-tabs a {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid #dddddd;
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  background: #f4f4f4;
+  color: #111111;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.sheet-tabs a.active {
+  height: 38px;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+@media (max-width: 920px) {
+  .balance-grid,
+  .ownership-layout {
+    grid-template-columns: 1fr;
+    gap: 56px;
+  }
+
+  .ownership-layout {
+    max-width: 680px;
+  }
+
+  .totals-layout,
+  .totals-balance-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
 }
