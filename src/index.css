@@ -217,7 +217,9 @@ select {
   text-align: left;
 }
 
+.balance-table th:nth-child(2),
 .balance-table th:last-child,
+.balance-table td:nth-child(2),
 .balance-table td:last-child {
   text-align: right;
 }
@@ -229,6 +231,73 @@ select {
 .balance-table .net-row {
   border-bottom: none;
   font-weight: 700;
+}
+
+.base-balance-cell,
+.new-base-balance {
+  white-space: nowrap;
+}
+
+.base-balance-cell span,
+.new-base-balance span {
+  margin-right: 5px;
+  font-weight: 600;
+}
+
+.base-balance-cell input,
+.add-balance-account input,
+.add-balance-account select,
+.add-balance-account button {
+  height: 32px;
+  border: none;
+  outline: none;
+  border-radius: 7px;
+  background: linear-gradient(
+    135deg,
+    #eeeeee 0%,
+    #f7f7f7 48%,
+    #ffffff 100%
+  );
+  color: #111111;
+  font: inherit;
+}
+
+.base-balance-cell input,
+.add-balance-account input,
+.add-balance-account select {
+  padding: 0 10px;
+}
+
+.base-balance-cell input {
+  width: 100px;
+  text-align: right;
+}
+
+.add-balance-account {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(110px, 140px) minmax(120px, 160px) auto;
+  gap: 8px;
+  max-width: 690px;
+  margin-top: 28px;
+}
+
+.new-base-balance {
+  display: flex;
+  align-items: center;
+}
+
+.new-base-balance input {
+  width: 100%;
+  text-align: right;
+}
+
+.add-balance-account button {
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.add-balance-account button:hover {
+  background: #e4e4e4;
 }
 
 .ownership-page {

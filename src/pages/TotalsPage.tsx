@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
-import { balanceSections } from '../data/balanceSheet'
+import {
+  getBalanceSections,
+  loadBalanceAccounts,
+} from '../data/balanceSheet'
 import {
   CURRENT_MONTH_ID,
   CURRENT_MONTH_LABEL,
@@ -59,6 +62,7 @@ function getRealizedClass(cents: number) {
 function getLiveSnapshot(): MonthlySnapshot {
   const transactions = loadCurrentMonthTransactions()
   const monthTotals = calculateMonthTotals(transactions)
+  const balanceAccounts = loadBalanceAccounts()
   const investedAccounts = loadInvestedAccounts()
   const totalInvestedCents = investedAccounts.reduce(
     (total, account) => total + account.amountCents,
@@ -69,7 +73,7 @@ function getLiveSnapshot(): MonthlySnapshot {
     monthId: CURRENT_MONTH_ID,
     monthLabel: CURRENT_MONTH_LABEL,
     monthTotals,
-    balanceSheet: balanceSections,
+    balanceSheet: getBalanceSections(balanceAccounts, transactions),
     amountInvested: {
       accounts: investedAccounts,
       totalCents: totalInvestedCents,

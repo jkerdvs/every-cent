@@ -43,18 +43,6 @@ export const subcategories = [
   'Equipment',
 ]
 
-export const mediums = [
-  'Checking',
-  'Platinum Credit Card',
-  'Quicksilver Credit Card',
-  'Cash',
-  'Brokerage',
-  'Roth IRA',
-  'Crypto Broker',
-  'Savings',
-  'Venmo',
-]
-
 export const types = [
   '+',
   '-',

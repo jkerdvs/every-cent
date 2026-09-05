@@ -7,11 +7,11 @@ import {
   categories,
   formatLedgerMoney,
   loadCurrentMonthTransactions,
-  mediums,
   subcategories,
   types,
 } from '../data/currentMonth'
 import type { Transaction } from '../data/currentMonth'
+import { loadBalanceAccounts } from '../data/balanceSheet'
 
 function CurrentMonthPage() {
   const [transactions, setTransactions] = useState<Transaction[]>(
@@ -36,6 +36,9 @@ function CurrentMonthPage() {
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => b.date - a.date)
   }, [transactions])
+  const mediumOptions = useMemo(() => {
+    return loadBalanceAccounts().map((account) => account.name)
+  }, [])
 
   const { profitCents, lossCents, realizedProfitLossCents } =
     useMemo(() => calculateMonthTotals(transactions), [transactions])
@@ -177,7 +180,7 @@ function CurrentMonthPage() {
                   Select
                 </option>
 
-                {mediums.map((item) => (
+                {mediumOptions.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>
