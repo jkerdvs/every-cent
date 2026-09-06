@@ -1,4 +1,5 @@
 import type { Transaction } from './currentMonth'
+import { getInvestmentCashAdjustmentForAccount } from './ownership'
 
 export type BalanceCategory = 'Save' | 'Liquid' | 'Growth' | 'Credit'
 
@@ -78,6 +79,12 @@ export const starterBalanceAccounts: BalanceAccount[] = [
     name: 'Equity',
     category: 'Growth',
     baseBalanceCents: 14000,
+  },
+  {
+    id: 'growth-equities',
+    name: 'Equities',
+    category: 'Growth',
+    baseBalanceCents: 0,
   },
   {
     id: 'growth-roth',
@@ -222,11 +229,16 @@ export function getBalanceSections(
           account.name,
           transactions,
         )
-        const balanceCents = account.baseBalanceCents + adjustmentCents
+        const investmentAdjustmentCents =
+          getInvestmentCashAdjustmentForAccount(account.id)
+        const balanceCents =
+          account.baseBalanceCents +
+          adjustmentCents +
+          investmentAdjustmentCents
 
         return {
           ...account,
-          adjustmentCents,
+          adjustmentCents: adjustmentCents + investmentAdjustmentCents,
           balanceCents,
           displayBalance: formatAccountBalance(balanceCents, category),
         }

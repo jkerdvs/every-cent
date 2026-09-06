@@ -114,6 +114,11 @@ select {
   width: 220px;
 }
 
+.transaction-action-cell {
+  width: 28px;
+  text-align: center;
+}
+
 .transaction-row td {
   padding: 7px 10px;
   font-size: 15px;
@@ -140,6 +145,24 @@ select {
 
 .add-transaction:hover {
   background: #e4e4e4;
+}
+
+.delete-transaction {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #555555;
+  cursor: pointer;
+}
+
+.delete-transaction:hover {
+  background: #eeeeee;
+  color: #111111;
 }
 
 .month-summary {
@@ -226,6 +249,10 @@ select {
   line-height: 1.1;
 }
 
+.storage-section + .storage-section {
+  margin-top: 42px;
+}
+
 .storage-table {
   min-width: 520px;
   border-collapse: collapse;
@@ -276,6 +303,25 @@ select {
 
 .storage-table td:nth-child(2) input {
   width: 210px;
+}
+
+.storage-config-table td:first-child input {
+  width: 210px;
+}
+
+.storage-investment-table td:first-child input {
+  width: 72px;
+  text-align: right;
+}
+
+.storage-investment-table td:nth-child(2) input {
+  width: 220px;
+}
+
+.storage-validation {
+  margin: 10px 0 0;
+  color: #dc2626;
+  font-size: 14px;
 }
 
 .storage-money-cell {
@@ -341,6 +387,11 @@ select {
   align-items: start;
 }
 
+.ownership-account-grid {
+  display: grid;
+  gap: 34px;
+}
+
 .portfolio-heading {
   margin-bottom: 12px;
   padding-bottom: 10px;
@@ -348,41 +399,50 @@ select {
 }
 
 .portfolio-heading h2,
-.amount-invested h2 {
+.amount-invested h2,
+.investment-ledger-section h2 {
   margin: 0;
   font-size: 22px;
   line-height: 1.1;
 }
 
 .ownership-table,
-.invested-table {
+.invested-table,
+.investment-ledger-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 15px;
 }
 
-.ownership-table th {
+.ownership-table th,
+.investment-ledger-table th {
   background: #f1f1f1;
   font-weight: 700;
 }
 
 .ownership-table th,
 .ownership-table td,
-.invested-table td {
+.invested-table td,
+.investment-ledger-table th,
+.investment-ledger-table td {
   padding: 9px 10px;
   text-align: left;
 }
 
 .ownership-table th:nth-child(2),
-.ownership-table th:nth-child(3),
 .ownership-table td:nth-child(2),
-.ownership-table td:nth-child(3),
-.invested-table td:last-child {
+.invested-table td:last-child,
+.investment-ledger-table th:nth-child(5),
+.investment-ledger-table th:nth-child(6),
+.investment-ledger-table td:nth-child(5),
+.investment-ledger-table td:nth-child(6),
+.investment-ledger-table td:last-child {
   text-align: right;
 }
 
 .ownership-table tbody tr,
-.invested-table tbody tr {
+.invested-table tbody tr,
+.investment-ledger-table tbody tr {
   border-bottom: 1px solid #eeeeee;
 }
 
@@ -391,72 +451,24 @@ select {
   text-align: left;
 }
 
-.net-added.positive {
-  color: #16a34a;
+.investment-ledger-section {
+  margin-top: 42px;
 }
 
-.net-added.negative {
-  color: #dc2626;
+.investment-ledger-section h2 {
+  margin-bottom: 12px;
 }
 
-.net-added.neutral {
-  color: #555555;
-}
-
-.net-added-control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 3px;
-}
-
-.net-added-control input {
-  width: 74px;
-  height: 28px;
-  border: none;
-  outline: none;
-  border-radius: 7px;
-  background: #f7f7f7;
-  color: inherit;
-  font: inherit;
-  text-align: right;
-}
-
-.net-added-control input:focus {
-  background: #eeeeee;
-}
-
-.net-added-control button {
-  width: 24px;
-  height: 28px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: #555555;
-  font: inherit;
-  cursor: pointer;
-}
-
-.net-added-control button:hover {
-  background: #f1f1f1;
-}
-
-.cost-basis-dollar {
-  margin-right: 5px;
-  font-weight: 600;
-}
-
-.add-equity {
+.investment-entry {
   display: grid;
-  grid-template-columns: minmax(90px, 120px) minmax(110px, 1fr) minmax(110px, 140px) minmax(120px, 150px) auto;
+  grid-template-columns: 58px 92px minmax(120px, 150px) minmax(90px, 120px) minmax(90px, 120px) minmax(120px, 150px) auto;
   gap: 8px;
-  margin-top: 16px;
-  max-width: 700px;
+  max-width: 860px;
 }
 
-.add-equity input,
-.add-equity select,
-.add-equity button {
+.investment-entry input,
+.investment-entry select,
+.investment-entry button {
   height: 32px;
   border: none;
   outline: none;
@@ -471,32 +483,43 @@ select {
   font: inherit;
 }
 
-.add-equity input,
-.add-equity select {
+.investment-entry input,
+.investment-entry select {
   padding: 0 10px;
 }
 
-.add-equity input:nth-child(2) {
+.investment-entry input:nth-child(5) {
   text-align: right;
 }
 
-.add-cost-basis {
+.investment-amount-field {
   display: flex;
   align-items: center;
+  gap: 5px;
 }
 
-.add-cost-basis input {
+.investment-amount-field span {
+  font-weight: 600;
+}
+
+.investment-amount-field input {
   width: 100%;
   text-align: right;
 }
 
-.add-equity button {
+.investment-entry button {
   padding: 0 14px;
   cursor: pointer;
 }
 
-.add-equity button:hover {
+.investment-entry button:hover {
   background: #e4e4e4;
+}
+
+.ownership-validation {
+  margin: 10px 0 0;
+  color: #dc2626;
+  font-size: 14px;
 }
 
 .amount-invested h2 {

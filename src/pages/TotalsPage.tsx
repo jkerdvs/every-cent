@@ -3,13 +3,20 @@ import {
   getBalanceSections,
   loadBalanceAccounts,
 } from '../data/balanceSheet'
+import type { BalanceAccount } from '../data/balanceSheet'
 import {
   CURRENT_MONTH_ID,
   CURRENT_MONTH_LABEL,
   calculateMonthTotals,
   loadCurrentMonthTransactions,
 } from '../data/currentMonth'
-import { formatMoney, loadInvestedAccounts } from '../data/ownership'
+import {
+  formatMoney,
+  getAmountInvestedByAccount,
+  loadInvestmentAccountConfigs,
+  loadInvestmentTransactions,
+  sortInvestmentAccountConfigs,
+} from '../data/ownership'
 
 type MonthlySnapshot = {
   monthId: string
@@ -63,7 +70,22 @@ function getLiveSnapshot(): MonthlySnapshot {
   const transactions = loadCurrentMonthTransactions()
   const monthTotals = calculateMonthTotals(transactions)
   const balanceAccounts = loadBalanceAccounts()
-  const investedAccounts = loadInvestedAccounts()
+  const amountInvestedByAccount = getAmountInvestedByAccount(
+    loadInvestmentTransactions(),
+  )
+  const accountById = new Map(
+    balanceAccounts.map((account) => [account.id, account]),
+  )
+  const investedAccounts = sortInvestmentAccountConfigs(
+    loadInvestmentAccountConfigs(balanceAccounts),
+    (config) => accountById.get(config.accountId)?.name ?? '',
+  )
+    .map((config) => accountById.get(config.accountId))
+    .filter((account): account is BalanceAccount => Boolean(account))
+    .map((account) => ({
+      name: account.name,
+      amountCents: amountInvestedByAccount.get(account.id) ?? 0,
+    }))
   const totalInvestedCents = investedAccounts.reduce(
     (total, account) => total + account.amountCents,
     0,

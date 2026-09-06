@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import {
   calculateMonthTotals,
-  categories,
   formatLedgerMoney,
   loadCurrentMonthTransactions,
+  loadTransactionCategories,
+  loadTransactionSubcategories,
   saveCurrentMonthTransactions,
-  subcategories,
   types,
 } from '../data/currentMonth'
 import type { Transaction } from '../data/currentMonth'
@@ -34,6 +34,12 @@ function CurrentMonthPage() {
   }, [transactions])
   const mediumOptions = useMemo(() => {
     return loadBalanceAccounts().map((account) => account.name)
+  }, [])
+  const categoryOptions = useMemo(() => {
+    return loadTransactionCategories().map((item) => item.name)
+  }, [])
+  const subcategoryOptions = useMemo(() => {
+    return loadTransactionSubcategories().map((item) => item.name)
   }, [])
 
   const { profitCents, lossCents, realizedProfitLossCents } =
@@ -103,6 +109,20 @@ function CurrentMonthPage() {
     setComments('')
   }
 
+  function deleteTransaction(transactionId: number) {
+    const confirmed = window.confirm(
+      'Delete this transaction?\n\nThis transaction will be permanently removed.',
+    )
+
+    if (!confirmed) return
+
+    setTransactions((currentTransactions) =>
+      currentTransactions.filter(
+        (transaction) => transaction.id !== transactionId,
+      ),
+    )
+  }
+
   return (
     <main className="current-month">
       <table className="transaction-table">
@@ -115,6 +135,7 @@ function CurrentMonthPage() {
             <th>Type</th>
             <th>Amount</th>
             <th>Comments</th>
+            <th></th>
           </tr>
         </thead>
 
@@ -140,7 +161,7 @@ function CurrentMonthPage() {
                   Select
                 </option>
 
-                {categories.map((item) => (
+                {categoryOptions.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>
@@ -157,7 +178,7 @@ function CurrentMonthPage() {
                   Select
                 </option>
 
-                {subcategories.map((item) => (
+                {subcategoryOptions.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>
@@ -225,6 +246,7 @@ function CurrentMonthPage() {
                 onChange={(event) => setComments(event.target.value)}
               />
             </td>
+            <td></td>
           </tr>
 
           {sortedTransactions.map((transaction) => (
@@ -238,6 +260,51 @@ function CurrentMonthPage() {
                 ${formatLedgerMoney(transaction.amountCents)}
               </td>
               <td>{transaction.comments}</td>
+              <td className="transaction-action-cell">
+                <button
+                  aria-label={`Delete transaction from day ${transaction.date}`}
+                  className="delete-transaction"
+                  type="button"
+                  onClick={() => deleteTransaction(transaction.id)}
+                >
+                  <svg
+                    aria-hidden="true"
+                    fill="none"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    width="14"
+                  >
+                    <path
+                      d="M3 6h18"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M8 6V4h8v2"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M6 6l1 15h10l1-15"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M10 11v6M14 11v6"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
