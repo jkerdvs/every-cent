@@ -312,72 +312,71 @@ function CurrentMonthPage() {
           </thead>
 
           <tbody>
-
-          {sortedTransactions.map((transaction) => (
-            <tr className="transaction-row" key={transaction.id}>
-              <td data-label="Date">{transaction.date}</td>
-              <td data-label="Category">{transaction.category}</td>
-              <td data-label="Subcategory">{transaction.subcategory}</td>
-              <td data-label="Medium">{transaction.medium}</td>
-              <td data-label="Type">{transaction.type}</td>
-              <td
-                className={`ledger-amount ${getTransactionAmountClass(
-                  transaction.type,
-                )}`}
-                data-label="Amount"
-              >
-                ${formatLedgerMoney(transaction.amountCents)}
-              </td>
-              <td data-label="Comments">{transaction.comments}</td>
-              <td className="transaction-action-cell">
-                <button
-                  aria-label={`Delete transaction from day ${transaction.date}`}
-                  className="delete-transaction"
-                  type="button"
-                  onClick={() => deleteTransaction(transaction.id)}
+            {sortedTransactions.map((transaction) => (
+              <tr className="transaction-row" key={transaction.id}>
+                <td data-label="Date">{transaction.date}</td>
+                <td data-label="Category">{transaction.category}</td>
+                <td data-label="Subcategory">{transaction.subcategory}</td>
+                <td data-label="Medium">{transaction.medium}</td>
+                <td data-label="Type">{transaction.type}</td>
+                <td
+                  className={`ledger-amount ${getTransactionAmountClass(
+                    transaction.type,
+                  )}`}
+                  data-label="Amount"
                 >
-                  <svg
-                    aria-hidden="true"
-                    fill="none"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    width="14"
+                  ${formatLedgerMoney(transaction.amountCents)}
+                </td>
+                <td data-label="Comments">{transaction.comments}</td>
+                <td className="transaction-action-cell">
+                  <button
+                    aria-label={`Delete transaction from day ${transaction.date}`}
+                    className="delete-transaction"
+                    type="button"
+                    onClick={() => deleteTransaction(transaction.id)}
                   >
-                    <path
-                      d="M3 6h18"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M8 6V4h8v2"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M6 6l1 15h10l1-15"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M10 11v6M14 11v6"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    <svg
+                      aria-hidden="true"
+                      fill="none"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      width="14"
+                    >
+                      <path
+                        d="M3 6h18"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M8 6V4h8v2"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M6 6l1 15h10l1-15"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M10 11v6M14 11v6"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </main>
   )
