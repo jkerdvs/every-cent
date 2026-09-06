@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import BalanceSheetPage from './pages/BalanceSheetPage'
 import CurrentMonthPage from './pages/CurrentMonthPage'
 import OwnershipPage from './pages/OwnershipPage'
+import StoragePage from './pages/StoragePage'
 import SystemPage from './pages/SystemPage'
 import TotalsPage from './pages/TotalsPage'
 
@@ -9,6 +10,7 @@ const routes = [
   { path: '/', label: 'September 2026' },
   { path: '/balance-sheet', label: 'Balance Sheet' },
   { path: '/ownership', label: 'Ownership' },
+  { path: '/storage', label: 'Storage' },
   { path: '/system', label: 'System' },
   { path: '/totals', label: 'Totals' },
 ]
@@ -16,6 +18,7 @@ const routes = [
 function getCurrentPath() {
   if (window.location.pathname === '/balance-sheet') return '/balance-sheet'
   if (window.location.pathname === '/ownership') return '/ownership'
+  if (window.location.pathname === '/storage') return '/storage'
   if (window.location.pathname === '/system') return '/system'
   if (window.location.pathname === '/totals') return '/totals'
 
@@ -50,6 +53,8 @@ function App() {
         <BalanceSheetPage />
       ) : currentPath === '/ownership' ? (
         <OwnershipPage />
+      ) : currentPath === '/storage' ? (
+        <StoragePage />
       ) : currentPath === '/system' ? (
         <SystemPage />
       ) : currentPath === '/totals' ? (

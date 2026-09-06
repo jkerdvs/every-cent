@@ -70,6 +70,29 @@ export function loadCurrentMonthTransactions() {
   }
 }
 
+export function saveCurrentMonthTransactions(transactions: Transaction[]) {
+  localStorage.setItem(
+    CURRENT_MONTH_TRANSACTIONS_KEY,
+    JSON.stringify(transactions),
+  )
+}
+
+export function renameCurrentMonthTransactionMedium(
+  previousName: string,
+  nextName: string,
+) {
+  if (previousName === nextName) return
+
+  const transactions = loadCurrentMonthTransactions()
+  const renamedTransactions = transactions.map((transaction) =>
+    transaction.medium === previousName
+      ? { ...transaction, medium: nextName }
+      : transaction,
+  )
+
+  saveCurrentMonthTransactions(renamedTransactions)
+}
+
 export function calculateMonthTotals(
   transactions: Transaction[],
 ): MonthTotals {

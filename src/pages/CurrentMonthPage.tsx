@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import {
   CURRENT_MONTH_LABEL,
-  CURRENT_MONTH_TRANSACTIONS_KEY,
   calculateMonthTotals,
   categories,
   formatLedgerMoney,
   loadCurrentMonthTransactions,
+  saveCurrentMonthTransactions,
   subcategories,
   types,
 } from '../data/currentMonth'
@@ -27,10 +27,7 @@ function CurrentMonthPage() {
   const [comments, setComments] = useState('')
 
   useEffect(() => {
-    localStorage.setItem(
-      CURRENT_MONTH_TRANSACTIONS_KEY,
-      JSON.stringify(transactions),
-    )
+    saveCurrentMonthTransactions(transactions)
   }, [transactions])
 
   const sortedTransactions = useMemo(() => {

@@ -177,11 +177,13 @@ select {
   color: #dc2626;
 }
 
-.balance-sheet {
+.balance-sheet,
+.storage-page {
   padding: 8px 48px 72px 8px;
 }
 
-.balance-sheet h1 {
+.balance-sheet h1,
+.storage-page h1 {
   margin: 12px 0 56px;
   font-size: 34px;
   line-height: 1;
@@ -217,9 +219,7 @@ select {
   text-align: left;
 }
 
-.balance-table th:nth-child(2),
 .balance-table th:last-child,
-.balance-table td:nth-child(2),
 .balance-table td:last-child {
   text-align: right;
 }
@@ -233,21 +233,36 @@ select {
   font-weight: 700;
 }
 
-.base-balance-cell,
-.new-base-balance {
-  white-space: nowrap;
+.storage-section h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  line-height: 1.1;
 }
 
-.base-balance-cell span,
-.new-base-balance span {
-  margin-right: 5px;
-  font-weight: 600;
+.storage-table {
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 15px;
 }
 
-.base-balance-cell input,
-.add-balance-account input,
-.add-balance-account select,
-.add-balance-account button {
+.storage-table th {
+  background: #f1f1f1;
+  font-weight: 700;
+}
+
+.storage-table th,
+.storage-table td {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.storage-table tbody tr {
+  border-bottom: 1px solid #eeeeee;
+}
+
+.storage-table select,
+.storage-table input,
+.add-storage-account {
   height: 32px;
   border: none;
   outline: none;
@@ -262,41 +277,51 @@ select {
   font: inherit;
 }
 
-.base-balance-cell input,
-.add-balance-account input,
-.add-balance-account select {
+.storage-table select,
+.storage-table input {
   padding: 0 10px;
 }
 
-.base-balance-cell input {
-  width: 100px;
-  text-align: right;
+.storage-table select {
+  width: 120px;
 }
 
-.add-balance-account {
-  display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(110px, 140px) minmax(120px, 160px) auto;
-  gap: 8px;
-  max-width: 690px;
-  margin-top: 28px;
+.storage-table td:nth-child(2) input {
+  width: 210px;
 }
 
-.new-base-balance {
+.storage-money-cell {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
 }
 
-.new-base-balance input {
-  width: 100%;
+.storage-money-cell span {
+  font-weight: 600;
+}
+
+.storage-money-cell input {
+  width: 110px;
   text-align: right;
 }
 
-.add-balance-account button {
+.storage-table th:nth-child(3),
+.storage-table td:nth-child(3) {
+  text-align: right;
+}
+
+.storage-entry-row {
+  border-bottom: none;
+}
+
+.add-storage-account {
+  margin-top: 10px;
   padding: 0 14px;
   cursor: pointer;
 }
 
-.add-balance-account button:hover {
+.add-storage-account:hover {
   background: #e4e4e4;
 }
 
