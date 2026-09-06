@@ -14,8 +14,6 @@ function BalanceSheetPage() {
 
   return (
     <main className="balance-sheet">
-      <h1>Balance Sheet</h1>
-
       <div className="balance-grid">
         {balanceSections.map((section) => (
           <section className="balance-section" key={section.title}>

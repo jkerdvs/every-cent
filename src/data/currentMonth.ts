@@ -93,6 +93,17 @@ export function renameCurrentMonthTransactionMedium(
   saveCurrentMonthTransactions(renamedTransactions)
 }
 
+export function clearCurrentMonthTransactionMedium(accountName: string) {
+  const transactions = loadCurrentMonthTransactions()
+  const clearedTransactions = transactions.map((transaction) =>
+    transaction.medium === accountName
+      ? { ...transaction, medium: '' }
+      : transaction,
+  )
+
+  saveCurrentMonthTransactions(clearedTransactions)
+}
+
 export function calculateMonthTotals(
   transactions: Transaction[],
 ): MonthTotals {

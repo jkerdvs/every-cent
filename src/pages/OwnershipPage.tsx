@@ -127,10 +127,7 @@ function OwnershipPage() {
 
   return (
     <main className="ownership-page">
-      <header className="ownership-header">
-        <h1>Ownership</h1>
-        <p>Ownership is the goal.</p>
-      </header>
+      <p className="ownership-note">Ownership is the goal.</p>
 
       <div className="ownership-layout">
         <section className="ownership-portfolio">

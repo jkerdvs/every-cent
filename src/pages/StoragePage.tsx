@@ -10,7 +10,10 @@ import type {
   BalanceAccount,
   BalanceCategory,
 } from '../data/balanceSheet'
-import { renameCurrentMonthTransactionMedium } from '../data/currentMonth'
+import {
+  clearCurrentMonthTransactionMedium,
+  renameCurrentMonthTransactionMedium,
+} from '../data/currentMonth'
 
 function StoragePage() {
   const [accounts, setAccounts] = useState<BalanceAccount[]>(
@@ -79,10 +82,23 @@ function StoragePage() {
     setBaseBalance('')
   }
 
+  function deleteAccount(account: BalanceAccount) {
+    const confirmed = window.confirm(
+      `Delete "${account.name}"?\n\nThis will remove the account from everyCent and clear its Balance Sheet references from current-month transactions.`,
+    )
+
+    if (!confirmed) return
+
+    clearCurrentMonthTransactionMedium(account.name)
+    setAccounts((currentAccounts) =>
+      currentAccounts.filter(
+        (currentAccount) => currentAccount.id !== account.id,
+      ),
+    )
+  }
+
   return (
     <main className="storage-page">
-      <h1>Storage</h1>
-
       <section className="storage-section">
         <h2>Balance Sheet Accounts</h2>
 
@@ -92,6 +108,7 @@ function StoragePage() {
               <th>Account Type</th>
               <th>Account</th>
               <th>Base Balance</th>
+              <th></th>
             </tr>
           </thead>
 
@@ -144,6 +161,16 @@ function StoragePage() {
                     />
                   </div>
                 </td>
+
+                <td>
+                  <button
+                    className="delete-storage-account"
+                    type="button"
+                    onClick={() => deleteAccount(account)}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
 
@@ -187,6 +214,8 @@ function StoragePage() {
                   />
                 </div>
               </td>
+
+              <td></td>
             </tr>
           </tbody>
         </table>

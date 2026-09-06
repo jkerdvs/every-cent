@@ -10,9 +10,9 @@ const routes = [
   { path: '/', label: 'September 2026' },
   { path: '/balance-sheet', label: 'Balance Sheet' },
   { path: '/ownership', label: 'Ownership' },
-  { path: '/storage', label: 'Storage' },
   { path: '/system', label: 'System' },
   { path: '/totals', label: 'Totals' },
+  { path: '/storage', label: 'Storage' },
 ]
 
 function getCurrentPath() {

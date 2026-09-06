@@ -32,12 +32,6 @@ select {
   padding: 8px;
 }
 
-.current-month h1 {
-  margin: 12px 0 24px;
-  font-size: 34px;
-  line-height: 1;
-}
-
 .transaction-table {
   border-collapse: separate;
   border-spacing: 5px 0;
@@ -182,13 +176,6 @@ select {
   padding: 8px 48px 72px 8px;
 }
 
-.balance-sheet h1,
-.storage-page h1 {
-  margin: 12px 0 56px;
-  font-size: 34px;
-  line-height: 1;
-}
-
 .balance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(260px, 360px));
@@ -262,7 +249,8 @@ select {
 
 .storage-table select,
 .storage-table input,
-.add-storage-account {
+.add-storage-account,
+.delete-storage-account {
   height: 32px;
   border: none;
   outline: none;
@@ -311,17 +299,28 @@ select {
   text-align: right;
 }
 
+.storage-table th:last-child,
+.storage-table td:last-child {
+  text-align: right;
+}
+
 .storage-entry-row {
   border-bottom: none;
 }
 
-.add-storage-account {
+.add-storage-account,
+.delete-storage-account {
   margin-top: 10px;
   padding: 0 14px;
   cursor: pointer;
 }
 
-.add-storage-account:hover {
+.delete-storage-account {
+  margin-top: 0;
+}
+
+.add-storage-account:hover,
+.delete-storage-account:hover {
   background: #e4e4e4;
 }
 
@@ -329,18 +328,8 @@ select {
   padding: 8px 48px 72px 8px;
 }
 
-.ownership-header {
-  margin: 12px 0 54px;
-}
-
-.ownership-header h1 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1;
-}
-
-.ownership-header p {
-  margin: 12px 0 0;
+.ownership-note {
+  margin: 0 0 18px;
   color: #555555;
   font-size: 15px;
 }
@@ -524,12 +513,6 @@ select {
   padding: 8px 8px 72px;
 }
 
-.system-page h1 {
-  margin: 12px 0 32px;
-  font-size: 34px;
-  line-height: 1;
-}
-
 .system-table {
   border-collapse: separate;
   border-spacing: 5px 0;
@@ -635,13 +618,7 @@ select {
   display: flex;
   gap: 18px;
   align-items: center;
-  margin: 12px 0 42px;
-}
-
-.totals-header h1 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1;
+  margin: 0 0 42px;
 }
 
 .totals-header button {

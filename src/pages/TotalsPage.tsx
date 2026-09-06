@@ -194,7 +194,6 @@ function TotalsPage() {
   return (
     <main className="totals-page">
       <div className="totals-header">
-        <h1>Totals</h1>
         <button
           disabled={hasCurrentSnapshot}
           type="button"

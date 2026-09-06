@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import {
-  CURRENT_MONTH_LABEL,
   calculateMonthTotals,
   categories,
   formatLedgerMoney,
@@ -106,8 +105,6 @@ function CurrentMonthPage() {
 
   return (
     <main className="current-month">
-      <h1>{CURRENT_MONTH_LABEL}</h1>
-
       <table className="transaction-table">
         <thead>
           <tr>

@@ -90,8 +90,6 @@ function SystemPage() {
 
   return (
     <main className="system-page">
-      <h1>System</h1>
-
       <table className="system-table">
         <thead>
           <tr>
