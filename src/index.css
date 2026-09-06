@@ -13,7 +13,12 @@ body,
 body {
   background: #ffffff;
   color: #111111;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 button,
@@ -24,80 +29,162 @@ select {
 
 .app-shell {
   min-height: 100vh;
-  padding-bottom: 58px;
+  padding-bottom: 72px;
 }
 
 .current-month {
-  min-width: 1000px;
-  padding: 8px;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 18px 18px 92px;
 }
 
-.transaction-table {
-  border-collapse: separate;
-  border-spacing: 5px 0;
+.month-header {
+  margin-bottom: 14px;
 }
 
-.transaction-table th {
-  padding: 0 5px 6px;
-  text-align: left;
-  font-size: 16px;
-  font-weight: 700;
+.month-header h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: 0;
 }
 
-.transaction-table td {
-  padding: 2px 0;
-  vertical-align: middle;
+.month-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  background: #eeeeee;
 }
 
-.entry-row input,
-.entry-row select {
-  height: 32px;
-  border: none;
+.summary-item {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.summary-item span {
+  color: #666666;
+  font-size: 13px;
+}
+
+.summary-item strong {
+  overflow-wrap: anywhere;
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+.positive {
+  color: #15803d;
+}
+
+.negative {
+  color: #dc2626;
+}
+
+.neutral {
+  color: #111111;
+}
+
+.transaction-entry {
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.transaction-entry-grid {
+  display: grid;
+  grid-template-columns:
+    62px minmax(112px, 1fr) minmax(132px, 1.1fr) minmax(132px, 1.1fr)
+    minmax(122px, 1fr) minmax(104px, 0.8fr) minmax(170px, 1.3fr)
+    auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.transaction-entry label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.transaction-entry label > span {
+  color: #666666;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.transaction-entry input,
+.transaction-entry select {
+  width: 100%;
+  height: 36px;
+  border: 1px solid #e3e3e3;
   outline: none;
   border-radius: 7px;
-  background: linear-gradient(
-    135deg,
-    #eeeeee 0%,
-    #f7f7f7 48%,
-    #ffffff 100%
-  );
+  background: #ffffff;
   padding: 0 10px;
   color: #111111;
 }
 
-.entry-row input:focus,
-.entry-row select:focus {
-  background: #f2f2f2;
+.transaction-entry input:focus,
+.transaction-entry select:focus {
+  border-color: #111111;
 }
 
-.entry-row select {
+.transaction-entry select {
   cursor: pointer;
 }
 
+.comments-field {
+  min-width: 0;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+}
+
+.transaction-table th {
+  padding: 0 10px 9px;
+  border-bottom: 1px solid #dddddd;
+  color: #666666;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.transaction-table td {
+  overflow: hidden;
+  padding: 11px 10px;
+  border-bottom: 1px solid #eeeeee;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
 .date-input {
-  width: 58px;
-}
-
-.entry-row td:nth-child(2) select {
-  width: 125px;
-}
-
-.entry-row td:nth-child(3) select {
-  width: 150px;
-}
-
-.entry-row td:nth-child(4) select {
-  width: 180px;
-}
-
-.entry-row td:nth-child(5) select {
-  width: 145px;
+  text-align: center;
 }
 
 .amount-field {
   display: flex;
   align-items: center;
+  height: 36px;
   gap: 5px;
+  border: 1px solid #e3e3e3;
+  border-radius: 7px;
+  background: #ffffff;
+  padding: 0 10px;
 }
 
 .currency-symbol {
@@ -105,46 +192,64 @@ select {
   font-weight: 600;
 }
 
-.entry-row .amount-input {
-  width: 82px;
+.transaction-entry .amount-input {
+  height: auto;
+  border: none;
+  background: transparent;
+  padding: 0;
   text-align: right;
 }
 
-.comments-input {
-  width: 220px;
+.amount-field:focus-within {
+  border-color: #111111;
 }
 
 .transaction-action-cell {
-  width: 28px;
+  width: 34px;
   text-align: center;
 }
 
-.transaction-row td {
-  padding: 7px 10px;
-  font-size: 15px;
+.transaction-table th:nth-child(1) {
+  width: 54px;
 }
 
-.transaction-row:nth-child(odd) td {
-  background: #fafafa;
+.transaction-table th:nth-child(2),
+.transaction-table th:nth-child(3),
+.transaction-table th:nth-child(4) {
+  width: 14%;
+}
+
+.transaction-table th:nth-child(5) {
+  width: 13%;
+}
+
+.transaction-table th:nth-child(6) {
+  width: 104px;
+}
+
+.transaction-table th:nth-child(8) {
+  width: 38px;
 }
 
 .ledger-amount {
+  font-weight: 600;
   text-align: right;
   white-space: nowrap;
 }
 
 .add-transaction {
-  margin-top: 10px;
+  height: 36px;
   border: none;
   border-radius: 7px;
-  background: #eeeeee;
-  padding: 8px 14px;
-  color: #111111;
+  background: #111111;
+  padding: 0 14px;
+  color: #ffffff;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .add-transaction:hover {
-  background: #e4e4e4;
+  background: #333333;
 }
 
 .delete-transaction {
@@ -163,35 +268,6 @@ select {
 .delete-transaction:hover {
   background: #eeeeee;
   color: #111111;
-}
-
-.month-summary {
-  margin-top: 22px;
-}
-
-.month-summary h2 {
-  margin-bottom: 18px;
-  font-size: 24px;
-}
-
-.month-summary p {
-  margin: 14px 0;
-}
-
-.realized-value {
-  font-weight: 600;
-}
-
-.realized-value.neutral {
-  color: #111111;
-}
-
-.realized-value.positive {
-  color: #16a34a;
-}
-
-.realized-value.negative {
-  color: #dc2626;
 }
 
 .balance-sheet,
@@ -782,31 +858,33 @@ select {
   bottom: 0;
   left: 0;
   display: flex;
-  gap: 4px;
-  align-items: flex-end;
-  height: 42px;
-  padding: 0 8px;
-  border-top: 1px solid #dddddd;
+  justify-content: center;
+  gap: 6px;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-top: 1px solid #e8e8e8;
   background: #ffffff;
+  box-shadow: 0 -6px 18px rgb(0 0 0 / 4%);
 }
 
 .sheet-tabs a {
   display: inline-flex;
   align-items: center;
-  height: 34px;
-  padding: 0 16px;
-  border: 1px solid #dddddd;
-  border-bottom: none;
-  border-radius: 7px 7px 0 0;
-  background: #f4f4f4;
-  color: #111111;
-  font-size: 14px;
+  justify-content: center;
+  min-width: 88px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  color: #777777;
+  font-size: 13px;
+  font-weight: 600;
   text-decoration: none;
 }
 
 .sheet-tabs a.active {
-  height: 38px;
-  background: #ffffff;
+  background: #f1f1f1;
+  color: #111111;
   font-weight: 700;
 }
 
@@ -825,5 +903,194 @@ select {
   .totals-balance-grid {
     grid-template-columns: 1fr;
     gap: 32px;
+  }
+}
+
+@media (max-width: 700px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    padding-bottom: 88px;
+  }
+
+  .current-month {
+    width: 100%;
+    padding: 16px 12px 106px;
+  }
+
+  .month-header h1 {
+    font-size: 24px;
+  }
+
+  .month-summary {
+    gap: 0;
+    margin-bottom: 14px;
+  }
+
+  .summary-item {
+    padding: 10px 9px;
+  }
+
+  .summary-item span {
+    font-size: 12px;
+  }
+
+  .summary-item strong {
+    font-size: 15px;
+  }
+
+  .transaction-entry {
+    margin-bottom: 16px;
+    padding: 12px;
+  }
+
+  .transaction-entry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .transaction-entry input,
+  .transaction-entry select,
+  .amount-field,
+  .add-transaction {
+    height: 42px;
+  }
+
+  .transaction-entry label > span {
+    font-size: 12px;
+  }
+
+  .comments-field,
+  .add-transaction {
+    grid-column: 1 / -1;
+  }
+
+  .transaction-ledger {
+    overflow: hidden;
+  }
+
+  .transaction-table {
+    display: block;
+    table-layout: auto;
+  }
+
+  .transaction-table thead {
+    display: none;
+  }
+
+  .transaction-table tbody {
+    display: grid;
+  }
+
+  .transaction-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto 28px;
+    gap: 4px 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid #eeeeee;
+  }
+
+  .transaction-row td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border-bottom: none;
+    white-space: normal;
+  }
+
+  .transaction-row td::before {
+    display: none;
+  }
+
+  .transaction-row td[data-label='Date'] {
+    grid-row: 1 / 4;
+    color: #111111;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .transaction-row td[data-label='Category'] {
+    grid-column: 2;
+    font-weight: 700;
+  }
+
+  .transaction-row td[data-label='Subcategory'] {
+    grid-column: 2;
+    color: #666666;
+    font-size: 13px;
+  }
+
+  .transaction-row td[data-label='Medium'] {
+    grid-column: 2;
+    color: #666666;
+    font-size: 13px;
+  }
+
+  .transaction-row td[data-label='Type'] {
+    display: none;
+  }
+
+  .transaction-row td[data-label='Amount'] {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    text-align: right;
+  }
+
+  .transaction-row td[data-label='Comments'] {
+    grid-column: 2 / 4;
+    overflow-wrap: anywhere;
+    color: #444444;
+    font-size: 13px;
+  }
+
+  .transaction-row td[data-label='Comments']:empty {
+    display: none;
+  }
+
+  .transaction-action-cell {
+    grid-column: 4;
+    grid-row: 1;
+    width: 28px;
+  }
+
+  .delete-transaction {
+    width: 28px;
+    height: 28px;
+  }
+
+  .sheet-tabs {
+    justify-content: space-between;
+    gap: 2px;
+    min-height: 64px;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .sheet-tabs a {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 4px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .summary-item {
+    padding: 9px 7px;
+  }
+
+  .summary-item strong {
+    font-size: 14px;
+  }
+
+  .sheet-tabs a {
+    font-size: 10px;
   }
 }

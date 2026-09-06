@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import {
+  CURRENT_MONTH_LABEL,
   calculateMonthTotals,
   formatLedgerMoney,
   loadCurrentMonthTransactions,
@@ -11,6 +12,15 @@ import {
 } from '../data/currentMonth'
 import type { Transaction } from '../data/currentMonth'
 import { loadBalanceAccounts } from '../data/balanceSheet'
+
+function getTransactionAmountClass(type: string) {
+  if (type === '+' || type === 'Liquidation') return 'positive'
+  if (type === '-' || type === 'Investment' || type === 'Savings') {
+    return 'negative'
+  }
+
+  return 'neutral'
+}
 
 function CurrentMonthPage() {
   const [transactions, setTransactions] = useState<Transaction[]>(
@@ -54,6 +64,8 @@ function CurrentMonthPage() {
 
   const amountCents = amountDigits ? Number(amountDigits) : 0
   const amountDisplay = formatLedgerMoney(amountCents)
+  const lossClass = lossCents > 0 ? 'negative' : 'neutral'
+  const profitClass = profitCents > 0 ? 'positive' : 'neutral'
 
   function handleAmountChange(value: string) {
     const digitsOnly = value.replace(/\D/g, '')
@@ -125,141 +137,198 @@ function CurrentMonthPage() {
 
   return (
     <main className="current-month">
-      <table className="transaction-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Subcategory</th>
-            <th>Medium</th>
-            <th>Type</th>
-            <th>Amount</th>
-            <th>Comments</th>
-            <th></th>
-          </tr>
-        </thead>
+      <header className="month-header">
+        <h1>{CURRENT_MONTH_LABEL}</h1>
+      </header>
 
-        <tbody>
-          <tr className="entry-row">
-            <td>
+      <section className="month-summary" aria-label="On the Month">
+        <div className="summary-item">
+          <span>Profit</span>
+          <strong className={profitClass}>
+            ${formatLedgerMoney(profitCents)}
+          </strong>
+        </div>
+
+        <div className="summary-item">
+          <span>Loss</span>
+          <strong className={lossClass}>
+            ${formatLedgerMoney(lossCents)}
+          </strong>
+        </div>
+
+        <div className="summary-item">
+          <span>Net</span>
+          <strong className={realizedProfitLossClass}>
+            ${formatLedgerMoney(realizedProfitLossCents)}
+          </strong>
+        </div>
+      </section>
+
+      <section className="transaction-entry" aria-label="Add Transaction">
+        <div className="transaction-entry-grid">
+          <label>
+            <span>Date</span>
+            <input
+              aria-label="Transaction date"
+              className="date-input"
+              type="number"
+              min="1"
+              max="31"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            <span>Category</span>
+            <select
+              aria-label="Transaction category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            >
+              <option value="" disabled>
+                Select
+              </option>
+
+              {categoryOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Subcategory</span>
+            <select
+              aria-label="Transaction subcategory"
+              value={subcategory}
+              onChange={(event) => setSubcategory(event.target.value)}
+            >
+              <option value="" disabled>
+                Select
+              </option>
+
+              {subcategoryOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Medium</span>
+            <select
+              aria-label="Transaction medium"
+              value={medium}
+              onChange={(event) => setMedium(event.target.value)}
+            >
+              <option value="" disabled>
+                Select
+              </option>
+
+              {mediumOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Type</span>
+            <select
+              aria-label="Transaction type"
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+            >
+              <option value="" disabled>
+                Select
+              </option>
+
+              {types.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Amount</span>
+            <div className="amount-field">
+              <span className="currency-symbol">$</span>
+
               <input
-                className="date-input"
-                type="number"
-                min="1"
-                max="31"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </td>
-
-            <td>
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              >
-                <option value="" disabled>
-                  Select
-                </option>
-
-                {categoryOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </td>
-
-            <td>
-              <select
-                value={subcategory}
-                onChange={(event) => setSubcategory(event.target.value)}
-              >
-                <option value="" disabled>
-                  Select
-                </option>
-
-                {subcategoryOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </td>
-
-            <td>
-              <select
-                value={medium}
-                onChange={(event) => setMedium(event.target.value)}
-              >
-                <option value="" disabled>
-                  Select
-                </option>
-
-                {mediumOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </td>
-
-            <td>
-              <select
-                value={type}
-                onChange={(event) => setType(event.target.value)}
-              >
-                <option value="" disabled>
-                  Select
-                </option>
-
-                {types.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </td>
-
-            <td>
-              <div className="amount-field">
-                <span className="currency-symbol">$</span>
-
-                <input
-                  className="amount-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={amountDisplay}
-                  onChange={(event) =>
-                    handleAmountChange(event.target.value)
-                  }
-                  onKeyDown={handleAmountKeyDown}
-                />
-              </div>
-            </td>
-
-            <td>
-              <input
-                className="comments-input"
+                aria-label="Transaction amount"
+                className="amount-input"
                 type="text"
-                placeholder="Add comments"
-                value={comments}
-                onChange={(event) => setComments(event.target.value)}
+                inputMode="numeric"
+                value={amountDisplay}
+                onChange={(event) =>
+                  handleAmountChange(event.target.value)
+                }
+                onKeyDown={handleAmountKeyDown}
               />
-            </td>
-            <td></td>
-          </tr>
+            </div>
+          </label>
+
+          <label className="comments-field">
+            <span>Comments</span>
+            <input
+              aria-label="Transaction comments"
+              className="comments-input"
+              type="text"
+              placeholder="Add comments"
+              value={comments}
+              onChange={(event) => setComments(event.target.value)}
+            />
+          </label>
+
+          <button
+            className="add-transaction"
+            type="button"
+            onClick={addTransaction}
+          >
+            + Add Transaction
+          </button>
+        </div>
+      </section>
+
+      <section className="transaction-ledger" aria-label="Transaction Ledger">
+        <table className="transaction-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Subcategory</th>
+              <th>Medium</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Comments</th>
+              <th></th>
+            </tr>
+          </thead>
+
+          <tbody>
 
           {sortedTransactions.map((transaction) => (
             <tr className="transaction-row" key={transaction.id}>
-              <td>{transaction.date}</td>
-              <td>{transaction.category}</td>
-              <td>{transaction.subcategory}</td>
-              <td>{transaction.medium}</td>
-              <td>{transaction.type}</td>
-              <td className="ledger-amount">
+              <td data-label="Date">{transaction.date}</td>
+              <td data-label="Category">{transaction.category}</td>
+              <td data-label="Subcategory">{transaction.subcategory}</td>
+              <td data-label="Medium">{transaction.medium}</td>
+              <td data-label="Type">{transaction.type}</td>
+              <td
+                className={`ledger-amount ${getTransactionAmountClass(
+                  transaction.type,
+                )}`}
+                data-label="Amount"
+              >
                 ${formatLedgerMoney(transaction.amountCents)}
               </td>
-              <td>{transaction.comments}</td>
+              <td data-label="Comments">{transaction.comments}</td>
               <td className="transaction-action-cell">
                 <button
                   aria-label={`Delete transaction from day ${transaction.date}`}
@@ -309,29 +378,7 @@ function CurrentMonthPage() {
           ))}
         </tbody>
       </table>
-
-      <button
-        className="add-transaction"
-        type="button"
-        onClick={addTransaction}
-      >
-        Add Transaction
-      </button>
-
-      <aside className="month-summary">
-        <h2>On the Month</h2>
-
-        <p>Profit: ${formatLedgerMoney(profitCents)}</p>
-
-        <p>Loss: ${formatLedgerMoney(lossCents)}</p>
-
-        <p>
-          Realized Profit & Loss:{' '}
-          <span className={`realized-value ${realizedProfitLossClass}`}>
-            ${formatLedgerMoney(realizedProfitLossCents)}
-          </span>
-        </p>
-      </aside>
+      </section>
     </main>
   )
 }
