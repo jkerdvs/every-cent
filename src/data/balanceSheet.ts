@@ -1,4 +1,5 @@
-import type { Transaction } from './currentMonth'
+import { isTransferTransaction } from './currentMonth'
+import type { CurrentMonthEntry } from './currentMonth'
 import { getInvestmentCashAdjustmentForAccount } from './ownership'
 
 export type BalanceCategory = 'Save' | 'Liquid' | 'Growth' | 'Credit'
@@ -189,7 +190,7 @@ export function saveBalanceAccounts(accounts: BalanceAccount[]) {
   localStorage.setItem(BALANCE_SHEET_STORAGE_KEY, JSON.stringify(accounts))
 }
 
-export function getTransactionAccountEffect(transaction: Transaction) {
+export function getTransactionAccountEffect(transaction: CurrentMonthEntry) {
   switch (transaction.type) {
     case '+':
     case 'Credit Purchase':
@@ -206,20 +207,31 @@ export function getTransactionAccountEffect(transaction: Transaction) {
 
 export function getAdjustmentForAccount(
   accountName: string,
-  transactions: Transaction[],
+  transactions: CurrentMonthEntry[],
 ) {
   return transactions
-    .filter((transaction) => transaction.medium === accountName)
-    .reduce(
-      (total, transaction) =>
-        total + getTransactionAccountEffect(transaction),
-      0,
-    )
+    .reduce((total, transaction) => {
+      if (isTransferTransaction(transaction)) {
+        if (transaction.fromMedium === accountName) {
+          return total - transaction.amountCents
+        }
+
+        if (transaction.toMedium === accountName) {
+          return total + transaction.amountCents
+        }
+
+        return total
+      }
+
+      if (transaction.medium !== accountName) return total
+
+      return total + getTransactionAccountEffect(transaction)
+    }, 0)
 }
 
 export function getBalanceSections(
   accounts: BalanceAccount[],
-  transactions: Transaction[],
+  transactions: CurrentMonthEntry[],
 ) {
   return balanceCategories.map((category) => {
     const sectionAccounts = accounts

@@ -1,13 +1,32 @@
-export type Transaction = {
+export type TransactionKind = 'transaction' | 'transfer'
+
+type BaseTransaction = {
   id: number
   date: number
+  amountCents: number
+  comments: string
+}
+
+export type Transaction = BaseTransaction & {
+  kind?: 'transaction'
   category: string
   subcategory: string
   medium: string
   type: string
-  amountCents: number
-  comments: string
 }
+
+export type TransferTransaction = BaseTransaction & {
+  kind: 'transfer'
+  category: 'Transfer'
+  subcategory: string
+  medium: string
+  type: 'Transfer'
+  transferId: string
+  fromMedium: string
+  toMedium: string
+}
+
+export type CurrentMonthEntry = Transaction | TransferTransaction
 
 export type MonthTotals = {
   profitCents: number
@@ -93,6 +112,18 @@ export const types = [
 
 export function formatLedgerMoney(cents: number) {
   return (cents / 100).toFixed(2)
+}
+
+export function isTransferTransaction(
+  transaction: CurrentMonthEntry,
+): transaction is TransferTransaction {
+  return transaction.kind === 'transfer'
+}
+
+export function isTransactionTransferCategory(
+  transaction: CurrentMonthEntry,
+) {
+  return transaction.category === 'Transfer'
 }
 
 function getConfigId(prefix: string) {
@@ -182,13 +213,13 @@ export function loadCurrentMonthTransactions() {
   if (!savedTransactions) return []
 
   try {
-    return JSON.parse(savedTransactions) as Transaction[]
+    return JSON.parse(savedTransactions) as CurrentMonthEntry[]
   } catch {
     return []
   }
 }
 
-export function saveCurrentMonthTransactions(transactions: Transaction[]) {
+export function saveCurrentMonthTransactions(transactions: CurrentMonthEntry[]) {
   localStorage.setItem(
     CURRENT_MONTH_TRANSACTIONS_KEY,
     JSON.stringify(transactions),
@@ -202,22 +233,48 @@ export function renameCurrentMonthTransactionMedium(
   if (previousName === nextName) return
 
   const transactions = loadCurrentMonthTransactions()
-  const renamedTransactions = transactions.map((transaction) =>
-    transaction.medium === previousName
+  const renamedTransactions = transactions.map((transaction) => {
+    if (isTransferTransaction(transaction)) {
+      return {
+        ...transaction,
+        fromMedium:
+          transaction.fromMedium === previousName
+            ? nextName
+            : transaction.fromMedium,
+        toMedium:
+          transaction.toMedium === previousName
+            ? nextName
+            : transaction.toMedium,
+      }
+    }
+
+    return transaction.medium === previousName
       ? { ...transaction, medium: nextName }
-      : transaction,
-  )
+      : transaction
+  })
 
   saveCurrentMonthTransactions(renamedTransactions)
 }
 
 export function clearCurrentMonthTransactionMedium(accountName: string) {
   const transactions = loadCurrentMonthTransactions()
-  const clearedTransactions = transactions.map((transaction) =>
-    transaction.medium === accountName
+  const clearedTransactions = transactions.map((transaction) => {
+    if (isTransferTransaction(transaction)) {
+      return {
+        ...transaction,
+        fromMedium:
+          transaction.fromMedium === accountName
+            ? ''
+            : transaction.fromMedium,
+        toMedium:
+          transaction.toMedium === accountName ? '' : transaction.toMedium,
+      }
+    }
+
+    return transaction.medium === accountName
       ? { ...transaction, medium: '' }
-      : transaction,
-  )
+      : transaction
+  })
 
   saveCurrentMonthTransactions(clearedTransactions)
 }
@@ -226,11 +283,13 @@ export function clearCurrentMonthTransactionSubcategory(
   subcategoryName: string,
 ) {
   const transactions = loadCurrentMonthTransactions()
-  const clearedTransactions = transactions.map((transaction) =>
-    transaction.subcategory === subcategoryName
+  const clearedTransactions = transactions.map((transaction) => {
+    if (isTransferTransaction(transaction)) return transaction
+
+    return transaction.subcategory === subcategoryName
       ? { ...transaction, subcategory: '' }
-      : transaction,
-  )
+      : transaction
+  })
 
   saveCurrentMonthTransactions(clearedTransactions)
 }
@@ -242,6 +301,8 @@ export function clearCurrentMonthTransactionCategory(
   const subcategoryNameSet = new Set(subcategoryNames)
   const transactions = loadCurrentMonthTransactions()
   const clearedTransactions = transactions.map((transaction) => {
+    if (isTransferTransaction(transaction)) return transaction
+
     if (transaction.category === categoryName) {
       return { ...transaction, category: '', subcategory: '' }
     }
@@ -257,13 +318,21 @@ export function clearCurrentMonthTransactionCategory(
 }
 
 export function calculateMonthTotals(
-  transactions: Transaction[],
+  transactions: CurrentMonthEntry[],
 ): MonthTotals {
   const profitCents = transactions
-    .filter((transaction) => transaction.type === '+')
+    .filter(
+      (transaction) =>
+        !isTransactionTransferCategory(transaction) &&
+        transaction.type === '+',
+    )
     .reduce((total, transaction) => total + transaction.amountCents, 0)
   const lossCents = transactions
-    .filter((transaction) => transaction.type === '-')
+    .filter(
+      (transaction) =>
+        !isTransactionTransferCategory(transaction) &&
+        transaction.type === '-',
+    )
     .reduce((total, transaction) => total + transaction.amountCents, 0)
 
   return {
