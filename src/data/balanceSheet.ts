@@ -1,13 +1,28 @@
-import { isTransferTransaction } from './currentMonth'
+import {
+  isCreditPaymentTransaction,
+  isCreditPurchaseTransaction,
+  isTransferTransaction,
+} from './currentMonth'
 import type { CurrentMonthEntry } from './currentMonth'
-import { getInvestmentCashAdjustmentForAccount } from './ownership'
+import {
+  getInvestmentCashAdjustmentForAccount,
+  INVESTMENT_ACCOUNTS_STORAGE_KEY,
+} from './ownership'
 
-export type BalanceCategory = 'Save' | 'Liquid' | 'Growth' | 'Credit'
+export type BalanceCategory = string
+export type AccountScope = 'transaction' | 'investment'
+
+export type BalanceCategoryConfig = {
+  id: string
+  name: string
+  order: number
+}
 
 export type BalanceAccount = {
   id: string
   name: string
   category: BalanceCategory
+  accountScope: AccountScope
   baseBalanceCents: number
 }
 
@@ -30,94 +45,59 @@ type LegacyBalanceAccount = Partial<BalanceAccount> & {
 
 export const BALANCE_SHEET_STORAGE_KEY =
   'every-cent-balance-sheet-accounts'
+export const BALANCE_CATEGORIES_STORAGE_KEY =
+  'every-cent-balance-sheet-account-types'
 
-export const balanceCategories: BalanceCategory[] = [
-  'Save',
-  'Liquid',
-  'Growth',
-  'Credit',
+export const starterBalanceCategories: BalanceCategoryConfig[] = [
+  { id: 'account-type-save', name: 'Save', order: 1 },
+  { id: 'account-type-liquid', name: 'Liquid', order: 2 },
+  { id: 'account-type-growth', name: 'Growth', order: 3 },
+  { id: 'account-type-credit', name: 'Credit', order: 4 },
 ]
 
-export const starterBalanceAccounts: BalanceAccount[] = [
-  {
-    id: 'save-ally',
-    name: 'Ally',
-    category: 'Save',
-    baseBalanceCents: 119300,
-  },
-  {
-    id: 'save-robinhood',
-    name: 'Robinhood',
-    category: 'Save',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'liquid-cash',
-    name: 'Cash',
-    category: 'Liquid',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'liquid-checking',
-    name: 'Checking',
-    category: 'Liquid',
-    baseBalanceCents: 7085,
-  },
-  {
-    id: 'liquid-venmo',
-    name: 'Venmo',
-    category: 'Liquid',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'growth-coinbase',
-    name: 'Coinbase',
-    category: 'Growth',
-    baseBalanceCents: 3500,
-  },
-  {
-    id: 'growth-equity',
-    name: 'Equity',
-    category: 'Growth',
-    baseBalanceCents: 14000,
-  },
-  {
-    id: 'growth-equities',
-    name: 'Equities',
-    category: 'Growth',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'growth-roth',
-    name: 'Roth',
-    category: 'Growth',
-    baseBalanceCents: 24695,
-  },
-  {
-    id: 'credit-coinbase-one',
-    name: 'Coinbase One',
-    category: 'Credit',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'credit-platinum',
-    name: 'Platinum',
-    category: 'Credit',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'credit-quicksilver',
-    name: 'Quicksilver',
-    category: 'Credit',
-    baseBalanceCents: 0,
-  },
-  {
-    id: 'credit-robinhood-gold',
-    name: 'Robinhood Gold',
-    category: 'Credit',
-    baseBalanceCents: 0,
-  },
-]
+export const balanceCategories = starterBalanceCategories.map(
+  (category) => category.name,
+)
+
+export const starterBalanceAccounts: BalanceAccount[] = []
+
+function loadInvestmentAccountIds() {
+  const savedConfigs = localStorage.getItem(INVESTMENT_ACCOUNTS_STORAGE_KEY)
+
+  if (!savedConfigs) return new Set<string>()
+
+  try {
+    const parsedConfigs = JSON.parse(savedConfigs)
+
+    if (!Array.isArray(parsedConfigs)) return new Set<string>()
+
+    return new Set(
+      parsedConfigs
+        .map((config) =>
+          typeof config.accountId === 'string' ? config.accountId : '',
+        )
+        .filter(Boolean),
+    )
+  } catch {
+    return new Set<string>()
+  }
+}
+
+function normalizeAccountScope(
+  account: LegacyBalanceAccount,
+  investmentAccountIds: Set<string>,
+): AccountScope {
+  if (
+    account.accountScope === 'transaction' ||
+    account.accountScope === 'investment'
+  ) {
+    return account.accountScope
+  }
+
+  return typeof account.id === 'string' && investmentAccountIds.has(account.id)
+    ? 'investment'
+    : 'transaction'
+}
 
 export function formatBalanceMoney(cents: number) {
   return new Intl.NumberFormat('en-US', {
@@ -138,18 +118,65 @@ export function parseMoneyInputToCents(value: string) {
   return Math.round(numericValue * 100)
 }
 
-export function formatAccountBalance(
-  cents: number,
-  category: BalanceCategory,
-) {
-  if (category !== 'Credit') return formatBalanceMoney(cents)
-  if (cents >= 0) return `-${formatBalanceMoney(cents)}`
+export function formatAccountBalance(cents: number) {
+  return formatBalanceMoney(cents)
+}
 
-  return formatBalanceMoney(Math.abs(cents))
+export function createBalanceCategory(name: string, order: number) {
+  const cleanName = name.trim()
+
+  return {
+    id: `account-type-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
+    name: cleanName,
+    order,
+  }
+}
+
+export function loadBalanceCategories() {
+  const savedCategories = localStorage.getItem(BALANCE_CATEGORIES_STORAGE_KEY)
+
+  if (!savedCategories) return starterBalanceCategories
+
+  try {
+    const parsedCategories = JSON.parse(savedCategories)
+
+    if (!Array.isArray(parsedCategories)) return starterBalanceCategories
+
+    return parsedCategories
+      .map((category, index): BalanceCategoryConfig => ({
+        id:
+          typeof category.id === 'string'
+            ? category.id
+            : `account-type-${Date.now()}-${index}`,
+        name:
+          typeof category.name === 'string' && category.name.trim()
+            ? category.name.trim()
+            : '',
+        order:
+          typeof category.order === 'number' &&
+          Number.isFinite(category.order)
+            ? Math.trunc(category.order)
+            : index + 1,
+      }))
+      .filter((category) => category.name)
+      .sort((a, b) => a.order - b.order)
+  } catch {
+    return starterBalanceCategories
+  }
+}
+
+export function saveBalanceCategories(categories: BalanceCategoryConfig[]) {
+  localStorage.setItem(
+    BALANCE_CATEGORIES_STORAGE_KEY,
+    JSON.stringify(categories),
+  )
 }
 
 export function loadBalanceAccounts() {
   const savedAccounts = localStorage.getItem(BALANCE_SHEET_STORAGE_KEY)
+  const investmentAccountIds = loadInvestmentAccountIds()
 
   if (!savedAccounts) return starterBalanceAccounts
 
@@ -168,11 +195,11 @@ export function loadBalanceAccounts() {
         return {
           id: account.id ?? `balance-account-${Date.now()}-${index}`,
           name: account.name?.trim() ?? '',
-          category: balanceCategories.includes(
-            account.category as BalanceCategory,
-          )
-            ? (account.category as BalanceCategory)
-            : 'Liquid',
+          category:
+            typeof account.category === 'string' && account.category.trim()
+              ? account.category.trim()
+              : 'Liquid',
+          accountScope: normalizeAccountScope(account, investmentAccountIds),
           baseBalanceCents:
             typeof baseBalanceCents === 'number' &&
             Number.isFinite(baseBalanceCents)
@@ -188,6 +215,26 @@ export function loadBalanceAccounts() {
 
 export function saveBalanceAccounts(accounts: BalanceAccount[]) {
   localStorage.setItem(BALANCE_SHEET_STORAGE_KEY, JSON.stringify(accounts))
+}
+
+export function getTransactionAccounts(accounts: BalanceAccount[]) {
+  return accounts.filter((account) => account.accountScope === 'transaction')
+}
+
+export function getInvestmentAccounts(accounts: BalanceAccount[]) {
+  return accounts.filter((account) => account.accountScope === 'investment')
+}
+
+export function getCreditAccounts(accounts: BalanceAccount[]) {
+  return getTransactionAccounts(accounts).filter(
+    (account) => account.category === 'Credit',
+  )
+}
+
+export function getCashTransactionAccounts(accounts: BalanceAccount[]) {
+  return getTransactionAccounts(accounts).filter(
+    (account) => account.category !== 'Credit',
+  )
 }
 
 export function getTransactionAccountEffect(transaction: CurrentMonthEntry) {
@@ -206,24 +253,46 @@ export function getTransactionAccountEffect(transaction: CurrentMonthEntry) {
 }
 
 export function getAdjustmentForAccount(
-  accountName: string,
+  account: BalanceAccount,
   transactions: CurrentMonthEntry[],
 ) {
   return transactions
     .reduce((total, transaction) => {
       if (isTransferTransaction(transaction)) {
-        if (transaction.fromMedium === accountName) {
+        if (transaction.fromMedium === account.name) {
           return total - transaction.amountCents
         }
 
-        if (transaction.toMedium === accountName) {
+        if (transaction.toMedium === account.name) {
           return total + transaction.amountCents
         }
 
         return total
       }
 
-      if (transaction.medium !== accountName) return total
+      if (isCreditPurchaseTransaction(transaction)) {
+        const matchesCreditAccount =
+          transaction.creditAccountId === account.id ||
+          transaction.creditAccountName === account.name
+
+        return matchesCreditAccount ? total - transaction.amountCents : total
+      }
+
+      if (isCreditPaymentTransaction(transaction)) {
+        const matchesSourceAccount =
+          transaction.sourceAccountId === account.id ||
+          transaction.sourceAccountName === account.name
+        const matchesCreditAccount =
+          transaction.creditAccountId === account.id ||
+          transaction.creditAccountName === account.name
+
+        if (matchesSourceAccount) return total - transaction.amountCents
+        if (matchesCreditAccount) return total + transaction.amountCents
+
+        return total
+      }
+
+      if (transaction.medium !== account.name) return total
 
       return total + getTransactionAccountEffect(transaction)
     }, 0)
@@ -233,14 +302,23 @@ export function getBalanceSections(
   accounts: BalanceAccount[],
   transactions: CurrentMonthEntry[],
 ) {
-  return balanceCategories.map((category) => {
+  const accountCategories = loadBalanceCategories()
+  const configuredCategoryNames = new Set(
+    accountCategories.map((category) => category.name),
+  )
+  const uncategorizedAccountCategories = accounts
+    .map((account) => account.category)
+    .filter((category) => category && !configuredCategoryNames.has(category))
+  const categories = [
+    ...accountCategories.map((category) => category.name),
+    ...Array.from(new Set(uncategorizedAccountCategories)).sort(),
+  ]
+
+  return categories.map((category) => {
     const sectionAccounts = accounts
       .filter((account) => account.category === category)
       .map((account) => {
-        const adjustmentCents = getAdjustmentForAccount(
-          account.name,
-          transactions,
-        )
+        const adjustmentCents = getAdjustmentForAccount(account, transactions)
         const investmentAdjustmentCents =
           getInvestmentCashAdjustmentForAccount(account.id)
         const balanceCents =
@@ -252,7 +330,7 @@ export function getBalanceSections(
           ...account,
           adjustmentCents: adjustmentCents + investmentAdjustmentCents,
           balanceCents,
-          displayBalance: formatAccountBalance(balanceCents, category),
+          displayBalance: formatAccountBalance(balanceCents),
         }
       })
 
@@ -265,7 +343,7 @@ export function getBalanceSections(
       title: category,
       accounts: sectionAccounts,
       netCents,
-      displayNet: formatAccountBalance(netCents, category),
+      displayNet: formatAccountBalance(netCents),
     }
   })
 }

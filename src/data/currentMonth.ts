@@ -1,4 +1,8 @@
-export type TransactionKind = 'transaction' | 'transfer'
+export type TransactionKind =
+  | 'transaction'
+  | 'transfer'
+  | 'creditPurchase'
+  | 'creditPayment'
 
 type BaseTransaction = {
   id: number
@@ -26,7 +30,34 @@ export type TransferTransaction = BaseTransaction & {
   toMedium: string
 }
 
-export type CurrentMonthEntry = Transaction | TransferTransaction
+export type CreditPurchaseTransaction = BaseTransaction & {
+  kind: 'creditPurchase'
+  category: string
+  subcategory: string
+  medium: string
+  type: 'Credit Purchase'
+  creditAccountId: string
+  creditAccountName: string
+}
+
+export type CreditPaymentTransaction = BaseTransaction & {
+  kind: 'creditPayment'
+  category: 'Credit Payment'
+  subcategory: string
+  medium: string
+  type: 'Credit Payment'
+  paymentId: string
+  sourceAccountId: string
+  sourceAccountName: string
+  creditAccountId: string
+  creditAccountName: string
+}
+
+export type CurrentMonthEntry =
+  | Transaction
+  | TransferTransaction
+  | CreditPurchaseTransaction
+  | CreditPaymentTransaction
 
 export type MonthTotals = {
   profitCents: number
@@ -41,7 +72,12 @@ export type TransactionCategory = {
 
 export type TransactionSubcategory = {
   id: string
-  categoryId: string
+  categoryId?: string
+  name: string
+}
+
+export type TransactionType = {
+  id: string
   name: string
 }
 
@@ -53,61 +89,18 @@ export const TRANSACTION_CATEGORIES_STORAGE_KEY =
   'every-cent-transaction-categories'
 export const TRANSACTION_SUBCATEGORIES_STORAGE_KEY =
   'every-cent-transaction-subcategories'
+export const TRANSACTION_TYPES_STORAGE_KEY = 'every-cent-transaction-types'
 
 export const starterTransactionCategories: TransactionCategory[] = [
   { id: 'category-income', name: 'Income' },
   { id: 'category-expense', name: 'Expense' },
-  { id: 'category-invest', name: 'Invest' },
-  { id: 'category-transfer', name: 'Transfer' },
-  { id: 'category-credit', name: 'Credit' },
-  { id: 'category-liquidation', name: 'Liquidation' },
-  { id: 'category-save', name: 'Save' },
-  { id: 'category-employ', name: 'Employ' },
 ]
 
-export const starterTransactionSubcategories: TransactionSubcategory[] = [
-  {
-    id: 'subcategory-payment',
-    categoryId: 'category-income',
-    name: 'Payment',
-  },
-  { id: 'subcategory-rent', categoryId: 'category-expense', name: 'Rent' },
-  {
-    id: 'subcategory-groceries',
-    categoryId: 'category-expense',
-    name: 'Groceries',
-  },
-  {
-    id: 'subcategory-options-trading',
-    categoryId: 'category-invest',
-    name: 'Options Trading',
-  },
-  {
-    id: 'subcategory-shopping',
-    categoryId: 'category-expense',
-    name: 'Shopping',
-  },
-  { id: 'subcategory-work', categoryId: 'category-employ', name: 'Work' },
-  { id: 'subcategory-crypto', categoryId: 'category-invest', name: 'Crypto' },
-  {
-    id: 'subcategory-going-out',
-    categoryId: 'category-expense',
-    name: 'Going Out',
-  },
-  {
-    id: 'subcategory-equipment',
-    categoryId: 'category-expense',
-    name: 'Equipment',
-  },
-]
+export const starterTransactionSubcategories: TransactionSubcategory[] = []
 
-export const types = [
-  '+',
-  '-',
-  'Investment',
-  'Credit Purchase',
-  'Savings',
-  'Liquidation',
+export const starterTransactionTypes: TransactionType[] = [
+  { id: 'type-income', name: '+' },
+  { id: 'type-expense', name: '-' },
 ]
 
 export function formatLedgerMoney(cents: number) {
@@ -118,6 +111,18 @@ export function isTransferTransaction(
   transaction: CurrentMonthEntry,
 ): transaction is TransferTransaction {
   return transaction.kind === 'transfer'
+}
+
+export function isCreditPurchaseTransaction(
+  transaction: CurrentMonthEntry,
+): transaction is CreditPurchaseTransaction {
+  return transaction.kind === 'creditPurchase'
+}
+
+export function isCreditPaymentTransaction(
+  transaction: CurrentMonthEntry,
+): transaction is CreditPaymentTransaction {
+  return transaction.kind === 'creditPayment'
 }
 
 export function isTransactionTransferCategory(
@@ -164,11 +169,16 @@ export function createTransactionCategory(
 
 export function createTransactionSubcategory(
   name: string,
-  categoryId: string,
 ): TransactionSubcategory {
   return {
     id: getConfigId('subcategory'),
-    categoryId,
+    name: normalizeConfigName(name),
+  }
+}
+
+export function createTransactionType(name: string): TransactionType {
+  return {
+    id: getConfigId('type'),
     name: normalizeConfigName(name),
   }
 }
@@ -193,7 +203,12 @@ export function loadTransactionSubcategories() {
   return loadStoredConfig(
     TRANSACTION_SUBCATEGORIES_STORAGE_KEY,
     starterTransactionSubcategories,
-  ).filter((subcategory) => subcategory.name.trim())
+  )
+    .map((subcategory) => ({
+      ...subcategory,
+      name: subcategory.name.trim(),
+    }))
+    .filter((subcategory) => subcategory.name)
 }
 
 export function saveTransactionSubcategories(
@@ -202,6 +217,20 @@ export function saveTransactionSubcategories(
   localStorage.setItem(
     TRANSACTION_SUBCATEGORIES_STORAGE_KEY,
     JSON.stringify(subcategories),
+  )
+}
+
+export function loadTransactionTypes() {
+  return loadStoredConfig(
+    TRANSACTION_TYPES_STORAGE_KEY,
+    starterTransactionTypes,
+  ).filter((type) => type.name.trim())
+}
+
+export function saveTransactionTypes(transactionTypes: TransactionType[]) {
+  localStorage.setItem(
+    TRANSACTION_TYPES_STORAGE_KEY,
+    JSON.stringify(transactionTypes),
   )
 }
 
@@ -248,6 +277,39 @@ export function renameCurrentMonthTransactionMedium(
       }
     }
 
+    if (isCreditPurchaseTransaction(transaction)) {
+      return transaction.creditAccountName === previousName
+        ? {
+            ...transaction,
+            medium: nextName,
+            creditAccountName: nextName,
+          }
+        : transaction
+    }
+
+    if (isCreditPaymentTransaction(transaction)) {
+      return {
+        ...transaction,
+        subcategory:
+          transaction.sourceAccountName === previousName ||
+          transaction.creditAccountName === previousName
+            ? `${transaction.sourceAccountName === previousName ? nextName : transaction.sourceAccountName} -> ${
+                transaction.creditAccountName === previousName
+                  ? nextName
+                  : transaction.creditAccountName
+              }`
+            : transaction.subcategory,
+        sourceAccountName:
+          transaction.sourceAccountName === previousName
+            ? nextName
+            : transaction.sourceAccountName,
+        creditAccountName:
+          transaction.creditAccountName === previousName
+            ? nextName
+            : transaction.creditAccountName,
+      }
+    }
+
     return transaction.medium === previousName
       ? { ...transaction, medium: nextName }
       : transaction
@@ -271,6 +333,33 @@ export function clearCurrentMonthTransactionMedium(accountName: string) {
       }
     }
 
+    if (isCreditPurchaseTransaction(transaction)) {
+      return transaction.creditAccountName === accountName
+        ? { ...transaction, medium: '', creditAccountName: '' }
+        : transaction
+    }
+
+    if (isCreditPaymentTransaction(transaction)) {
+      const sourceAccountName =
+        transaction.sourceAccountName === accountName
+          ? ''
+          : transaction.sourceAccountName
+      const creditAccountName =
+        transaction.creditAccountName === accountName
+          ? ''
+          : transaction.creditAccountName
+
+      return {
+        ...transaction,
+        subcategory:
+          sourceAccountName && creditAccountName
+            ? `${sourceAccountName} -> ${creditAccountName}`
+            : '',
+        sourceAccountName,
+        creditAccountName,
+      }
+    }
+
     return transaction.medium === accountName
       ? { ...transaction, medium: '' }
       : transaction
@@ -284,7 +373,12 @@ export function clearCurrentMonthTransactionSubcategory(
 ) {
   const transactions = loadCurrentMonthTransactions()
   const clearedTransactions = transactions.map((transaction) => {
-    if (isTransferTransaction(transaction)) return transaction
+    if (
+      isTransferTransaction(transaction) ||
+      isCreditPaymentTransaction(transaction)
+    ) {
+      return transaction
+    }
 
     return transaction.subcategory === subcategoryName
       ? { ...transaction, subcategory: '' }
@@ -296,12 +390,17 @@ export function clearCurrentMonthTransactionSubcategory(
 
 export function clearCurrentMonthTransactionCategory(
   categoryName: string,
-  subcategoryNames: string[],
+  subcategoryNames: string[] = [],
 ) {
   const subcategoryNameSet = new Set(subcategoryNames)
   const transactions = loadCurrentMonthTransactions()
   const clearedTransactions = transactions.map((transaction) => {
-    if (isTransferTransaction(transaction)) return transaction
+    if (
+      isTransferTransaction(transaction) ||
+      isCreditPaymentTransaction(transaction)
+    ) {
+      return transaction
+    }
 
     if (transaction.category === categoryName) {
       return { ...transaction, category: '', subcategory: '' }
@@ -331,7 +430,8 @@ export function calculateMonthTotals(
     .filter(
       (transaction) =>
         !isTransactionTransferCategory(transaction) &&
-        transaction.type === '-',
+        (transaction.type === '-' ||
+          isCreditPurchaseTransaction(transaction)),
     )
     .reduce((total, transaction) => total + transaction.amountCents, 0)
 

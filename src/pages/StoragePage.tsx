@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
-  balanceCategories,
+  createBalanceCategory,
   formatBaseBalanceInput,
+  getTransactionAccounts,
+  loadBalanceCategories,
   loadBalanceAccounts,
   parseMoneyInputToCents,
+  saveBalanceCategories,
   saveBalanceAccounts,
 } from '../data/balanceSheet'
 import type {
   BalanceAccount,
   BalanceCategory,
+  BalanceCategoryConfig,
 } from '../data/balanceSheet'
 import {
   clearCurrentMonthTransactionMedium,
@@ -16,18 +20,21 @@ import {
   clearCurrentMonthTransactionSubcategory,
   createTransactionCategory,
   createTransactionSubcategory,
+  createTransactionType,
   loadTransactionCategories,
   loadTransactionSubcategories,
+  loadTransactionTypes,
   renameCurrentMonthTransactionMedium,
   saveTransactionCategories,
   saveTransactionSubcategories,
+  saveTransactionTypes,
 } from '../data/currentMonth'
 import type {
   TransactionCategory,
   TransactionSubcategory,
+  TransactionType,
 } from '../data/currentMonth'
 import {
-  canonicalInvestmentAccountNames,
   createInvestmentAccountConfig,
   deriveInvestmentPositions,
   loadInvestmentAccountConfigs,
@@ -37,36 +44,22 @@ import {
 } from '../data/ownership'
 import type { InvestmentAccountConfig } from '../data/ownership'
 
-function getAccountsWithCanonicalInvestmentAccounts() {
-  const loadedAccounts = loadBalanceAccounts()
-
-  return canonicalInvestmentAccountNames.reduce<BalanceAccount[]>(
-    (currentAccounts, name) => {
-      if (currentAccounts.some((account) => account.name === name)) {
-        return currentAccounts
-      }
-
-      return [
-        ...currentAccounts,
-        {
-          id: `growth-${name.toLowerCase().replace(/\s+/g, '-')}`,
-          name,
-          category: 'Growth',
-          baseBalanceCents: 0,
-        },
-      ]
-    },
-    loadedAccounts,
-  )
+function createStorageAccountId(prefix: string) {
+  return `${prefix}-${Date.now()}`
 }
 
 function StoragePage() {
+  const [accountCategories, setAccountCategories] = useState<
+    BalanceCategoryConfig[]
+  >(loadBalanceCategories)
   const [accounts, setAccounts] = useState<BalanceAccount[]>(
-    getAccountsWithCanonicalInvestmentAccounts,
+    loadBalanceAccounts,
   )
   const [accountName, setAccountName] = useState('')
   const [category, setCategory] = useState<BalanceCategory>('Liquid')
   const [baseBalance, setBaseBalance] = useState('')
+  const [newAccountTypeName, setNewAccountTypeName] = useState('')
+  const [accountTypeMessage, setAccountTypeMessage] = useState('')
   const [transactionCategories, setTransactionCategories] = useState<
     TransactionCategory[]
   >(loadTransactionCategories)
@@ -76,13 +69,16 @@ function StoragePage() {
   const [newTransactionCategory, setNewTransactionCategory] = useState('')
   const [newTransactionSubcategory, setNewTransactionSubcategory] =
     useState('')
-  const [parentCategoryId, setParentCategoryId] = useState(
-    () => loadTransactionCategories()[0]?.id ?? '',
-  )
+  const [transactionTypes, setTransactionTypes] = useState<
+    TransactionType[]
+  >(loadTransactionTypes)
+  const [newTransactionType, setNewTransactionType] = useState('')
+  const [transactionConfigMessage, setTransactionConfigMessage] =
+    useState('')
   const [investmentAccountConfigs, setInvestmentAccountConfigs] = useState<
     InvestmentAccountConfig[]
   >(() =>
-    loadInvestmentAccountConfigs(getAccountsWithCanonicalInvestmentAccounts()),
+    loadInvestmentAccountConfigs(loadBalanceAccounts()),
   )
   const [investmentAccountName, setInvestmentAccountName] = useState('')
   const [investmentAccountOrder, setInvestmentAccountOrder] = useState('')
@@ -92,6 +88,10 @@ function StoragePage() {
   useEffect(() => {
     saveBalanceAccounts(accounts)
   }, [accounts])
+
+  useEffect(() => {
+    saveBalanceCategories(accountCategories)
+  }, [accountCategories])
 
   useEffect(() => {
     saveInvestmentAccountConfigs(investmentAccountConfigs)
@@ -105,6 +105,19 @@ function StoragePage() {
     saveTransactionSubcategories(transactionSubcategories)
   }, [transactionSubcategories])
 
+  useEffect(() => {
+    saveTransactionTypes(transactionTypes)
+  }, [transactionTypes])
+
+  const sortedAccountCategories = [...accountCategories].sort(
+    (a, b) => a.order - b.order,
+  )
+  const selectedAccountCategory = sortedAccountCategories.some(
+    (categoryItem) => categoryItem.name === category,
+  )
+    ? category
+    : sortedAccountCategories[0]?.name ?? ''
+
   function updateAccountType(
     accountId: string,
     nextCategory: BalanceCategory,
@@ -116,6 +129,96 @@ function StoragePage() {
           : account,
       ),
     )
+  }
+
+  function updateAccountCategoryOrder(categoryId: string, value: string) {
+    const order = Number(value)
+
+    if (!Number.isFinite(order)) return
+
+    setAccountCategories((currentCategories) =>
+      currentCategories.map((categoryItem) =>
+        categoryItem.id === categoryId
+          ? { ...categoryItem, order: Math.trunc(order) }
+          : categoryItem,
+      ),
+    )
+  }
+
+  function updateAccountCategoryName(categoryId: string, nextName: string) {
+    const previousName = accountCategories.find(
+      (categoryItem) => categoryItem.id === categoryId,
+    )?.name
+
+    setAccountCategories((currentCategories) =>
+      currentCategories.map((categoryItem) =>
+        categoryItem.id === categoryId
+          ? { ...categoryItem, name: nextName }
+          : categoryItem,
+      ),
+    )
+
+    if (!previousName || previousName === nextName) return
+
+    setAccounts((currentAccounts) =>
+      currentAccounts.map((account) =>
+        account.category === previousName
+          ? { ...account, category: nextName }
+          : account,
+      ),
+    )
+
+    if (category === previousName) {
+      setCategory(nextName)
+    }
+  }
+
+  function addAccountCategory() {
+    const cleanName = newAccountTypeName.trim()
+
+    if (!cleanName) return
+    if (
+      accountCategories.some(
+        (categoryItem) =>
+          categoryItem.name.trim().toLowerCase() ===
+          cleanName.toLowerCase(),
+      )
+    ) {
+      return
+    }
+
+    setAccountCategories((currentCategories) => [
+      ...currentCategories,
+      createBalanceCategory(cleanName, currentCategories.length + 1),
+    ])
+    setNewAccountTypeName('')
+    setAccountTypeMessage('')
+  }
+
+  function deleteAccountCategory(categoryItem: BalanceCategoryConfig) {
+    const hasAccounts = accounts.some(
+      (account) => account.category === categoryItem.name,
+    )
+
+    if (hasAccounts) {
+      setAccountTypeMessage(
+        `Cannot delete "${categoryItem.name}" because accounts use this type.`,
+      )
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${categoryItem.name}"?\n\nThis will remove the account type from future Balance Sheet account selections.`,
+    )
+
+    if (!confirmed) return
+
+    setAccountCategories((currentCategories) =>
+      currentCategories.filter(
+        (currentCategory) => currentCategory.id !== categoryItem.id,
+      ),
+    )
+    setAccountTypeMessage('')
   }
 
   function updateAccountName(accountId: string, nextName: string) {
@@ -144,19 +247,21 @@ function StoragePage() {
 
   function addAccount() {
     const cleanAccountName = accountName.trim()
+    const selectedCategory = selectedAccountCategory
 
-    if (!cleanAccountName) return
+    if (!cleanAccountName || !selectedCategory) return
 
     const account: BalanceAccount = {
-      id: `balance-account-${Date.now()}`,
+      id: createStorageAccountId('balance-account'),
       name: cleanAccountName,
-      category,
+      category: selectedCategory,
+      accountScope: 'transaction',
       baseBalanceCents: parseMoneyInputToCents(baseBalance),
     }
 
     setAccounts((currentAccounts) => [...currentAccounts, account])
     setAccountName('')
-    setCategory('Liquid')
+    setCategory(sortedAccountCategories[0]?.name ?? '')
     setBaseBalance('')
   }
 
@@ -178,6 +283,7 @@ function StoragePage() {
   const accountById = new Map(
     accounts.map((account) => [account.id, account]),
   )
+  const transactionAccounts = getTransactionAccounts(accounts)
   const sortedInvestmentAccountConfigs = sortInvestmentAccountConfigs(
     investmentAccountConfigs,
     (config) => accountById.get(config.accountId)?.name ?? '',
@@ -223,9 +329,16 @@ function StoragePage() {
     if (!cleanName || !Number.isFinite(order)) return
 
     const nextAccount: BalanceAccount = {
-      id: `growth-${Date.now()}`,
+      id: createStorageAccountId('investment-account'),
       name: cleanName,
-      category: 'Growth',
+      category:
+        sortedAccountCategories.find(
+          (categoryItem) => categoryItem.name === 'Growth',
+        )
+          ?.name ??
+        sortedAccountCategories[0]?.name ??
+        'Growth',
+      accountScope: 'investment',
       baseBalanceCents: 0,
     }
 
@@ -297,9 +410,6 @@ function StoragePage() {
       ...currentCategories,
       nextCategory,
     ])
-    setParentCategoryId((currentParentCategoryId) =>
-      currentParentCategoryId || nextCategory.id,
-    )
     setNewTransactionCategory('')
   }
 
@@ -310,49 +420,24 @@ function StoragePage() {
 
     if (!confirmed) return
 
-    const deletedSubcategories = transactionSubcategories.filter(
-      (subcategory) => subcategory.categoryId === categoryItem.id,
-    )
-
-    clearCurrentMonthTransactionCategory(
-      categoryItem.name,
-      deletedSubcategories.map((subcategory) => subcategory.name),
-    )
+    clearCurrentMonthTransactionCategory(categoryItem.name)
     setTransactionCategories((currentCategories) =>
       currentCategories.filter(
         (currentCategory) => currentCategory.id !== categoryItem.id,
       ),
     )
-    setTransactionSubcategories((currentSubcategories) =>
-      currentSubcategories.filter(
-        (subcategory) => subcategory.categoryId !== categoryItem.id,
-      ),
-    )
-    setParentCategoryId((currentParentCategoryId) => {
-      if (currentParentCategoryId !== categoryItem.id) {
-        return currentParentCategoryId
-      }
-
-      return transactionCategories.find(
-        (currentCategory) => currentCategory.id !== categoryItem.id,
-      )?.id ?? ''
-    })
   }
 
   function addTransactionSubcategory() {
     const cleanName = newTransactionSubcategory.trim()
 
-    if (
-      !cleanName ||
-      !parentCategoryId ||
-      hasDuplicateSubcategory(cleanName)
-    ) {
+    if (!cleanName || hasDuplicateSubcategory(cleanName)) {
       return
     }
 
     setTransactionSubcategories((currentSubcategories) => [
       ...currentSubcategories,
-      createTransactionSubcategory(cleanName, parentCategoryId),
+      createTransactionSubcategory(cleanName),
     ])
     setNewTransactionSubcategory('')
   }
@@ -361,7 +446,7 @@ function StoragePage() {
     subcategoryItem: TransactionSubcategory,
   ) {
     const confirmed = window.confirm(
-      `Delete "${subcategoryItem.name}"?\n\nThis will remove the subcategory from future transaction selections. Existing transactions will be preserved.`,
+      `Delete "${subcategoryItem.name}"?\n\nThis will remove the description from future transaction selections. Existing transactions will be preserved.`,
     )
 
     if (!confirmed) return
@@ -374,46 +459,342 @@ function StoragePage() {
     )
   }
 
-  function getCategoryName(categoryId: string) {
-    return (
-      transactionCategories.find(
-        (categoryItem) => categoryItem.id === categoryId,
-      )?.name ?? ''
+  function hasDuplicateTransactionType(name: string) {
+    return transactionTypes.some(
+      (transactionType) =>
+        transactionType.name.trim().toLowerCase() ===
+        name.trim().toLowerCase(),
+    )
+  }
+
+  function addTransactionType() {
+    const cleanName = newTransactionType.trim()
+
+    if (!cleanName || hasDuplicateTransactionType(cleanName)) return
+
+    setTransactionTypes((currentTypes) => [
+      ...currentTypes,
+      createTransactionType(cleanName),
+    ])
+    setNewTransactionType('')
+    setTransactionConfigMessage('')
+  }
+
+  function deleteTransactionType(transactionType: TransactionType) {
+    const confirmed = window.confirm(
+      `Delete "${transactionType.name}"?\n\nThis removes it from future transaction type selections. Existing transactions will be preserved.`,
+    )
+
+    if (!confirmed) return
+
+    setTransactionTypes((currentTypes) =>
+      currentTypes.filter(
+        (currentType) => currentType.id !== transactionType.id,
+      ),
     )
   }
 
   return (
     <main className="storage-page">
-      <section className="storage-section">
-        <h2>Balance Sheet Accounts</h2>
+      <section className="storage-group">
+        <h1>Transaction Setup</h1>
 
-        <table className="storage-table">
-          <thead>
-            <tr>
-              <th>Account Type</th>
-              <th>Account</th>
-              <th>Base Balance</th>
-              <th></th>
-            </tr>
-          </thead>
+        <div className="storage-config-grid">
+          <section className="storage-section">
+            <h2>Categories</h2>
 
-          <tbody>
-            {accounts.map((account) => (
-              <tr key={account.id}>
+            <div className="storage-list">
+              {transactionCategories.map((categoryItem) => (
+                <div className="storage-list-row" key={categoryItem.id}>
+                  <span>{categoryItem.name}</span>
+                  <button
+                    className="delete-storage-account"
+                    type="button"
+                    onClick={() => deleteTransactionCategory(categoryItem)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+
+              <div className="storage-list-row storage-entry-row">
+                <input
+                  aria-label="New category name"
+                  placeholder="Category Name"
+                  type="text"
+                  value={newTransactionCategory}
+                  onChange={(event) =>
+                    setNewTransactionCategory(event.target.value)
+                  }
+                />
+                <button
+                  className="add-storage-account"
+                  type="button"
+                  onClick={addTransactionCategory}
+                >
+                  Add Category
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="storage-section">
+            <h2>Descriptions</h2>
+
+            <div className="storage-list">
+              {transactionSubcategories.length > 0 ? (
+                transactionSubcategories.map((subcategoryItem) => (
+                  <div className="storage-list-row" key={subcategoryItem.id}>
+                    <span>{subcategoryItem.name}</span>
+                    <button
+                      className="delete-storage-account"
+                      type="button"
+                      onClick={() =>
+                        deleteTransactionSubcategory(subcategoryItem)
+                      }
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="storage-empty">No descriptions yet.</p>
+              )}
+
+              <div className="storage-list-row storage-entry-row">
+                <input
+                  aria-label="New description name"
+                  placeholder="Description Name"
+                  type="text"
+                  value={newTransactionSubcategory}
+                  onChange={(event) =>
+                    setNewTransactionSubcategory(event.target.value)
+                  }
+                />
+                <button
+                  className="add-storage-account"
+                  type="button"
+                  onClick={addTransactionSubcategory}
+                >
+                  Add Description
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="storage-section">
+            <h2>Transaction Types</h2>
+
+            <div className="storage-list">
+              {transactionTypes.map((transactionType) => (
+                <div className="storage-list-row" key={transactionType.id}>
+                  <span>{transactionType.name}</span>
+                  <button
+                    className="delete-storage-account"
+                    type="button"
+                    onClick={() => deleteTransactionType(transactionType)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+
+              <div className="storage-list-row storage-entry-row">
+                <input
+                  aria-label="New transaction type"
+                  placeholder="Type"
+                  type="text"
+                  value={newTransactionType}
+                  onChange={(event) =>
+                    setNewTransactionType(event.target.value)
+                  }
+                />
+                <button
+                  className="add-storage-account"
+                  type="button"
+                  onClick={addTransactionType}
+                >
+                  Add Type
+                </button>
+              </div>
+            </div>
+
+            {transactionConfigMessage ? (
+              <p className="storage-validation">{transactionConfigMessage}</p>
+            ) : null}
+          </section>
+        </div>
+      </section>
+
+      <section className="storage-group">
+        <h1>Account Setup</h1>
+
+        <section className="storage-section">
+          <h2>Account Types</h2>
+
+          <table className="storage-table storage-type-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Account Type</th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {sortedAccountCategories.map((categoryItem) => (
+                <tr key={categoryItem.id}>
+                  <td>
+                    <input
+                      aria-label={`${categoryItem.name} account type order`}
+                      type="number"
+                      value={categoryItem.order}
+                      onChange={(event) =>
+                        updateAccountCategoryOrder(
+                          categoryItem.id,
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`${categoryItem.name} account type name`}
+                      type="text"
+                      value={categoryItem.name}
+                      onChange={(event) =>
+                        updateAccountCategoryName(
+                          categoryItem.id,
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button
+                      className="delete-storage-account"
+                      type="button"
+                      onClick={() => deleteAccountCategory(categoryItem)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              <tr className="storage-entry-row">
+                <td></td>
+                <td>
+                  <input
+                    aria-label="New account type name"
+                    placeholder="Account Type"
+                    type="text"
+                    value={newAccountTypeName}
+                    onChange={(event) =>
+                      setNewAccountTypeName(event.target.value)
+                    }
+                  />
+                </td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button
+            className="add-storage-account"
+            type="button"
+            onClick={addAccountCategory}
+          >
+            Add Account Type
+          </button>
+
+          {accountTypeMessage ? (
+            <p className="storage-validation">{accountTypeMessage}</p>
+          ) : null}
+        </section>
+
+        <section className="storage-section">
+          <h2>Accounts</h2>
+
+          <table className="storage-table">
+            <thead>
+              <tr>
+                <th>Account Type</th>
+                <th>Account</th>
+                <th>Base Balance</th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {transactionAccounts.map((account) => (
+                <tr key={account.id}>
+                  <td>
+                    <select
+                      aria-label={`${account.name} account type`}
+                      value={account.category}
+                      onChange={(event) =>
+                        updateAccountType(account.id, event.target.value)
+                      }
+                    >
+                      {sortedAccountCategories.map((item) => (
+                        <option key={item.id} value={item.name}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td>
+                    <input
+                      aria-label={`${account.name} account name`}
+                      type="text"
+                      value={account.name}
+                      onChange={(event) =>
+                        updateAccountName(account.id, event.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <div className="storage-money-cell">
+                      <span>$</span>
+                      <input
+                        aria-label={`${account.name} base balance`}
+                        step="0.01"
+                        type="number"
+                        value={formatBaseBalanceInput(
+                          account.baseBalanceCents,
+                        )}
+                        onChange={(event) =>
+                          updateBaseBalance(account.id, event.target.value)
+                        }
+                      />
+                    </div>
+                  </td>
+
+                  <td>
+                    <button
+                      className="delete-storage-account"
+                      type="button"
+                      onClick={() => deleteAccount(account)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              <tr className="storage-entry-row">
                 <td>
                   <select
-                    aria-label={`${account.name} account type`}
-                    value={account.category}
-                    onChange={(event) =>
-                      updateAccountType(
-                        account.id,
-                        event.target.value as BalanceCategory,
-                      )
-                    }
+                    aria-label="New account type"
+                    value={selectedAccountCategory}
+                    onChange={(event) => setCategory(event.target.value)}
                   >
-                    {balanceCategories.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
+                    {sortedAccountCategories.map((item) => (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
                       </option>
                     ))}
                   </select>
@@ -421,12 +802,11 @@ function StoragePage() {
 
                 <td>
                   <input
-                    aria-label={`${account.name} account name`}
+                    aria-label="New account name"
+                    placeholder="Account Name"
                     type="text"
-                    value={account.name}
-                    onChange={(event) =>
-                      updateAccountName(account.id, event.target.value)
-                    }
+                    value={accountName}
+                    onChange={(event) => setAccountName(event.target.value)}
                   />
                 </td>
 
@@ -434,176 +814,124 @@ function StoragePage() {
                   <div className="storage-money-cell">
                     <span>$</span>
                     <input
-                      aria-label={`${account.name} base balance`}
+                      aria-label="New account base balance"
+                      placeholder="Base Balance"
                       step="0.01"
                       type="number"
-                      value={formatBaseBalanceInput(
-                        account.baseBalanceCents,
-                      )}
-                      onChange={(event) =>
-                        updateBaseBalance(account.id, event.target.value)
-                      }
+                      value={baseBalance}
+                      onChange={(event) => setBaseBalance(event.target.value)}
                     />
                   </div>
                 </td>
 
-                <td>
-                  <button
-                    className="delete-storage-account"
-                    type="button"
-                    onClick={() => deleteAccount(account)}
-                  >
-                    Delete
-                  </button>
-                </td>
+                <td></td>
               </tr>
-            ))}
+            </tbody>
+          </table>
 
-            <tr className="storage-entry-row">
-              <td>
-                <select
-                  aria-label="New account type"
-                  value={category}
-                  onChange={(event) =>
-                    setCategory(event.target.value as BalanceCategory)
-                  }
-                >
-                  {balanceCategories.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </td>
-
-              <td>
-                <input
-                  aria-label="New account name"
-                  placeholder="Account Name"
-                  type="text"
-                  value={accountName}
-                  onChange={(event) => setAccountName(event.target.value)}
-                />
-              </td>
-
-              <td>
-                <div className="storage-money-cell">
-                  <span>$</span>
-                  <input
-                    aria-label="New account base balance"
-                    placeholder="Base Balance"
-                    step="0.01"
-                    type="number"
-                    value={baseBalance}
-                    onChange={(event) => setBaseBalance(event.target.value)}
-                  />
-                </div>
-              </td>
-
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <button
-          className="add-storage-account"
-          type="button"
-          onClick={addAccount}
-        >
-          Add Account
-        </button>
+          <button
+            className="add-storage-account"
+            type="button"
+            onClick={addAccount}
+          >
+            Add Account
+          </button>
+        </section>
       </section>
 
-      <section className="storage-section">
-        <h2>Investment Accounts</h2>
+      <section className="storage-group">
+        <h1>Investment Setup</h1>
 
-        <table className="storage-table storage-investment-table">
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Investment Account</th>
-              <th></th>
-            </tr>
-          </thead>
+        <section className="storage-section">
+          <h2>Investment Accounts</h2>
 
-          <tbody>
-            {sortedInvestmentAccountConfigs.map((config) => {
-              const account = accountById.get(config.accountId)
+          <table className="storage-table storage-investment-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Investment Account</th>
+                <th></th>
+              </tr>
+            </thead>
 
-              if (!account) return null
+            <tbody>
+              {sortedInvestmentAccountConfigs.map((config) => {
+                const account = accountById.get(config.accountId)
 
-              return (
-                <tr key={config.id}>
-                  <td>
-                    <input
-                      aria-label={`${account.name} investment order`}
-                      type="number"
-                      value={config.order}
-                      onChange={(event) =>
-                        updateInvestmentAccountOrder(
-                          config.id,
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </td>
+                if (!account) return null
 
-                  <td>
-                    <input
-                      aria-label={`${account.name} investment account name`}
-                      type="text"
-                      value={account.name}
-                      onChange={(event) =>
-                        updateInvestmentAccountName(
-                          account.id,
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </td>
+                return (
+                  <tr key={config.id}>
+                    <td>
+                      <input
+                        aria-label={`${account.name} investment order`}
+                        type="number"
+                        value={config.order}
+                        onChange={(event) =>
+                          updateInvestmentAccountOrder(
+                            config.id,
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </td>
 
-                  <td>
-                    <button
-                      className="delete-storage-account"
-                      type="button"
-                      onClick={() => deleteInvestmentAccount(config)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
+                    <td>
+                      <input
+                        aria-label={`${account.name} investment account name`}
+                        type="text"
+                        value={account.name}
+                        onChange={(event) =>
+                          updateInvestmentAccountName(
+                            account.id,
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </td>
 
-            <tr className="storage-entry-row">
-              <td>
-                <input
-                  aria-label="New investment account order"
-                  placeholder="Order"
-                  type="number"
-                  value={investmentAccountOrder}
-                  onChange={(event) =>
-                    setInvestmentAccountOrder(event.target.value)
-                  }
-                />
-              </td>
+                    <td>
+                      <button
+                        className="delete-storage-account"
+                        type="button"
+                        onClick={() => deleteInvestmentAccount(config)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
 
-              <td>
-                <input
-                  aria-label="New investment account name"
-                  placeholder="Investment Account"
-                  type="text"
-                  value={investmentAccountName}
-                  onChange={(event) =>
-                    setInvestmentAccountName(event.target.value)
-                  }
-                />
-              </td>
+              <tr className="storage-entry-row">
+                <td>
+                  <input
+                    aria-label="New investment account order"
+                    placeholder="Order"
+                    type="number"
+                    value={investmentAccountOrder}
+                    onChange={(event) =>
+                      setInvestmentAccountOrder(event.target.value)
+                    }
+                  />
+                </td>
 
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
+                <td>
+                  <input
+                    aria-label="New investment account name"
+                    placeholder="Investment Account"
+                    type="text"
+                    value={investmentAccountName}
+                    onChange={(event) =>
+                      setInvestmentAccountName(event.target.value)
+                    }
+                  />
+                </td>
+
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
 
         <button
           className="add-storage-account"
@@ -617,130 +945,6 @@ function StoragePage() {
           <p className="storage-validation">{investmentAccountMessage}</p>
         ) : null}
       </section>
-
-      <section className="storage-section">
-        <h2>Categories</h2>
-
-        <table className="storage-table storage-config-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {transactionCategories.map((categoryItem) => (
-              <tr key={categoryItem.id}>
-                <td>{categoryItem.name}</td>
-                <td>
-                  <button
-                    className="delete-storage-account"
-                    type="button"
-                    onClick={() => deleteTransactionCategory(categoryItem)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-
-            <tr className="storage-entry-row">
-              <td>
-                <input
-                  aria-label="New category name"
-                  placeholder="Category Name"
-                  type="text"
-                  value={newTransactionCategory}
-                  onChange={(event) =>
-                    setNewTransactionCategory(event.target.value)
-                  }
-                />
-              </td>
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <button
-          className="add-storage-account"
-          type="button"
-          onClick={addTransactionCategory}
-        >
-          Add Category
-        </button>
-      </section>
-
-      <section className="storage-section">
-        <h2>Subcategories</h2>
-
-        <table className="storage-table storage-config-table">
-          <thead>
-            <tr>
-              <th>Subcategory</th>
-              <th>Parent Category</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {transactionSubcategories.map((subcategoryItem) => (
-              <tr key={subcategoryItem.id}>
-                <td>{subcategoryItem.name}</td>
-                <td>{getCategoryName(subcategoryItem.categoryId)}</td>
-                <td>
-                  <button
-                    className="delete-storage-account"
-                    type="button"
-                    onClick={() =>
-                      deleteTransactionSubcategory(subcategoryItem)
-                    }
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-
-            <tr className="storage-entry-row">
-              <td>
-                <input
-                  aria-label="New subcategory name"
-                  placeholder="Subcategory Name"
-                  type="text"
-                  value={newTransactionSubcategory}
-                  onChange={(event) =>
-                    setNewTransactionSubcategory(event.target.value)
-                  }
-                />
-              </td>
-              <td>
-                <select
-                  aria-label="New subcategory parent category"
-                  value={parentCategoryId}
-                  onChange={(event) =>
-                    setParentCategoryId(event.target.value)
-                  }
-                >
-                  {transactionCategories.map((categoryItem) => (
-                    <option key={categoryItem.id} value={categoryItem.id}>
-                      {categoryItem.name}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <button
-          className="add-storage-account"
-          type="button"
-          onClick={addTransactionSubcategory}
-        >
-          Add Subcategory
-        </button>
       </section>
     </main>
   )

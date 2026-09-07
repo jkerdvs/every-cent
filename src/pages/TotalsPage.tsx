@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   getBalanceSections,
+  getInvestmentAccounts,
   loadBalanceAccounts,
 } from '../data/balanceSheet'
 import type { BalanceAccount } from '../data/balanceSheet'
@@ -73,8 +74,9 @@ function getLiveSnapshot(): MonthlySnapshot {
   const amountInvestedByAccount = getAmountInvestedByAccount(
     loadInvestmentTransactions(),
   )
+  const investmentBalanceAccounts = getInvestmentAccounts(balanceAccounts)
   const accountById = new Map(
-    balanceAccounts.map((account) => [account.id, account]),
+    investmentBalanceAccounts.map((account) => [account.id, account]),
   )
   const investedAccounts = sortInvestmentAccountConfigs(
     loadInvestmentAccountConfigs(balanceAccounts),

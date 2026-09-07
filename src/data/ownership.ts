@@ -1,15 +1,15 @@
 export type Holding = {
   id: number
+  accountId: string
+  accountName: string
   ticker: string
-  baseShares: number
-  netAdded: number
+  shares: number
+  costBasisCents: number
 }
 
 export type StoredHolding = Partial<Holding> & {
-  accountId?: string
-  accountName?: string
-  costBasisCents?: number
-  shares?: number
+  baseShares?: number
+  netAdded?: number
 }
 
 export type InvestedAccount = {
@@ -120,28 +120,59 @@ export function loadStoredArray<T>(key: string, fallback: T[]) {
 export function loadHoldings() {
   return loadStoredArray<StoredHolding>(HOLDINGS_STORAGE_KEY, [])
     .map((holding, index) => {
-      const baseShares =
-        typeof holding.baseShares === 'number'
-          ? holding.baseShares
-          : holding.shares
-      const normalizedBaseShares =
-        typeof baseShares === 'number' && Number.isFinite(baseShares)
-          ? baseShares
+      const shares =
+        typeof holding.shares === 'number'
+          ? holding.shares
+          : holding.baseShares
+      const normalizedShares =
+        typeof shares === 'number' && Number.isFinite(shares)
+          ? shares
           : 0
-      const normalizedNetAdded =
-        typeof holding.netAdded === 'number' &&
-        Number.isFinite(holding.netAdded)
-          ? holding.netAdded
+      const costBasisCents =
+        typeof holding.costBasisCents === 'number' &&
+        Number.isFinite(holding.costBasisCents)
+          ? holding.costBasisCents
           : 0
 
       return {
         id: holding.id ?? Date.now() + index,
+        accountId: holding.accountId ?? 'growth-equity',
+        accountName: holding.accountName ?? 'Equity',
         ticker: holding.ticker?.trim().toUpperCase() ?? '',
-        baseShares: normalizedBaseShares,
-        netAdded: normalizedNetAdded,
+        shares: normalizedShares,
+        costBasisCents,
       }
     })
-    .filter((holding) => holding.ticker)
+    .filter((holding) => holding.accountId && holding.ticker)
+}
+
+export function saveHoldings(holdings: Holding[]) {
+  localStorage.setItem(HOLDINGS_STORAGE_KEY, JSON.stringify(holdings))
+}
+
+export function upsertHolding(
+  holdings: Holding[],
+  nextHolding: Holding,
+) {
+  const existingHolding = holdings.find(
+    (holding) =>
+      holding.accountId === nextHolding.accountId &&
+      holding.ticker === nextHolding.ticker,
+  )
+
+  if (!existingHolding) return [...holdings, nextHolding]
+
+  return holdings.map((holding) =>
+    holding.id === existingHolding.id
+      ? {
+          ...holding,
+          accountName: nextHolding.accountName,
+          shares: holding.shares + nextHolding.shares,
+          costBasisCents:
+            holding.costBasisCents + nextHolding.costBasisCents,
+        }
+      : holding,
+  )
 }
 
 function getLegacyAccountAmount(name: string) {
@@ -160,50 +191,12 @@ function getLegacyAccountAmount(name: string) {
   return savedByName.get(name) ?? 0
 }
 
-function loadLegacyInvestmentTransactions() {
-  const holdings = loadStoredArray<StoredHolding>(HOLDINGS_STORAGE_KEY, [])
-
-  return holdings
-    .map((holding, index): InvestmentTransaction | null => {
-      const baseShares =
-        typeof holding.baseShares === 'number'
-          ? holding.baseShares
-          : holding.shares
-      const shares =
-        typeof baseShares === 'number' && Number.isFinite(baseShares)
-          ? baseShares
-          : 0
-      const ticker = holding.ticker?.trim().toUpperCase() ?? ''
-
-      if (!ticker || shares <= 0) return null
-
-      return {
-        id: holding.id ?? Date.now() + index,
-        date: 0,
-        type: 'buy',
-        accountId: holding.accountId ?? 'growth-equity',
-        accountName: holding.accountName ?? 'Equity',
-        ticker,
-        shares,
-        amountCents:
-          typeof holding.costBasisCents === 'number' &&
-          Number.isFinite(holding.costBasisCents)
-            ? holding.costBasisCents
-            : 0,
-        affectsBalance: false,
-      }
-    })
-    .filter((transaction): transaction is InvestmentTransaction =>
-      Boolean(transaction),
-    )
-}
-
 export function loadInvestmentTransactions() {
   const savedTransactions = localStorage.getItem(
     INVESTMENT_TRANSACTIONS_STORAGE_KEY,
   )
 
-  if (!savedTransactions) return loadLegacyInvestmentTransactions()
+  if (!savedTransactions) return []
 
   try {
     const parsedTransactions = JSON.parse(savedTransactions)
@@ -274,32 +267,12 @@ export function loadInvestmentTransactions() {
   }
 }
 
-function getCanonicalInvestmentConfigs(
-  balanceAccounts: { id: string; name: string }[],
-) {
-  return canonicalInvestmentAccountNames
-    .map((name, index) => {
-      const account = balanceAccounts.find(
-        (balanceAccount) => balanceAccount.name === name,
-      )
-
-      if (!account) return null
-
-      return {
-        id: `investment-account-${account.id}`,
-        accountId: account.id,
-        order: index + 1,
-      }
-    })
-    .filter((config): config is InvestmentAccountConfig => Boolean(config))
-}
-
 export function loadInvestmentAccountConfigs(
   balanceAccounts: { id: string; name: string }[],
 ) {
   const savedConfigs = localStorage.getItem(INVESTMENT_ACCOUNTS_STORAGE_KEY)
 
-  if (!savedConfigs) return getCanonicalInvestmentConfigs(balanceAccounts)
+  if (!savedConfigs) return []
 
   try {
     const parsedConfigs = JSON.parse(savedConfigs)
@@ -375,8 +348,28 @@ function getPositionKey(accountId: string, ticker: string) {
 
 export function deriveInvestmentPositions(
   transactions: InvestmentTransaction[],
+  holdings = loadHoldings(),
 ) {
   const positionsByKey = new Map<string, InvestmentPosition>()
+
+  holdings.forEach((holding) => {
+    if (holding.shares <= 0) return
+
+    const key = getPositionKey(holding.accountId, holding.ticker)
+    const currentPosition = positionsByKey.get(key) ?? {
+      accountId: holding.accountId,
+      ticker: holding.ticker,
+      shares: 0,
+      costBasisCents: 0,
+    }
+
+    positionsByKey.set(key, {
+      ...currentPosition,
+      shares: currentPosition.shares + holding.shares,
+      costBasisCents:
+        currentPosition.costBasisCents + holding.costBasisCents,
+    })
+  })
 
   transactions.forEach((transaction) => {
     const key = getPositionKey(transaction.accountId, transaction.ticker)
@@ -433,8 +426,9 @@ export function deriveInvestmentPositions(
 
 export function getAmountInvestedByAccount(
   transactions: InvestmentTransaction[],
+  holdings = loadHoldings(),
 ) {
-  const positions = deriveInvestmentPositions(transactions)
+  const positions = deriveInvestmentPositions(transactions, holdings)
   const amountByAccountId = new Map<string, number>()
 
   positions.forEach((position) => {
@@ -464,8 +458,15 @@ export function getInvestmentCashAdjustmentForAccount(accountId: string) {
 
 export function validateInvestmentTransactions(
   transactions: InvestmentTransaction[],
+  holdings = loadHoldings(),
 ) {
   const sharesByKey = new Map<string, number>()
+
+  holdings.forEach((holding) => {
+    const key = getPositionKey(holding.accountId, holding.ticker)
+
+    sharesByKey.set(key, (sharesByKey.get(key) ?? 0) + holding.shares)
+  })
 
   for (const transaction of transactions) {
     const key = getPositionKey(transaction.accountId, transaction.ticker)
