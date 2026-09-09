@@ -110,17 +110,30 @@ function renderMoney(cents: number) {
 }
 
 function TotalsMonthBlock({
+  isPrimary = false,
   label,
+  onUndoFinalize,
   snapshot,
 }: {
+  isPrimary?: boolean
   label: string
+  onUndoFinalize?: () => void
   snapshot: MonthlySnapshot
 }) {
+  const Heading = isPrimary ? 'h1' : 'h2'
+
   return (
     <section className="totals-month">
       <div className="totals-month-heading">
-        <h2>{snapshot.monthLabel}</h2>
-        <span>{label}</span>
+        <Heading>{snapshot.monthLabel}</Heading>
+        <div className="totals-month-heading-actions">
+          <span>{label}</span>
+          {onUndoFinalize ? (
+            <button type="button" onClick={onUndoFinalize}>
+              Undo Finalize
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="totals-layout">
@@ -215,31 +228,63 @@ function TotalsPage() {
     )
   }
 
+  function undoLatestFinalization() {
+    const latestSnapshot = sortedSnapshots[0]
+
+    if (!latestSnapshot) return
+
+    let removedLatestSnapshot = false
+    const nextSnapshots = snapshots.filter((snapshot) => {
+      if (
+        !removedLatestSnapshot &&
+        snapshot.monthId === latestSnapshot.monthId
+      ) {
+        removedLatestSnapshot = true
+        return false
+      }
+
+      return true
+    })
+
+    setSnapshots(nextSnapshots)
+    localStorage.setItem(
+      MONTHLY_TOTALS_STORAGE_KEY,
+      JSON.stringify(nextSnapshots),
+    )
+  }
+
   return (
     <main className="totals-page">
-      <div className="totals-header">
-        <button
-          disabled={hasCurrentSnapshot}
-          type="button"
-          onClick={finalizeCurrentMonth}
-        >
-          Finalize Current Month
-        </button>
-      </div>
-
-      <section className="totals-section">
-        <h2>Current Month</h2>
-        <TotalsMonthBlock label="Live" snapshot={liveSnapshot} />
+      <section className="totals-section totals-current-section">
+        <TotalsMonthBlock
+          isPrimary
+          label="Live"
+          snapshot={liveSnapshot}
+        />
       </section>
 
       <section className="totals-section">
-        <h2>Historical Months</h2>
+        <div className="totals-history-heading">
+          <h2>Historical Months</h2>
+          <button
+            disabled={hasCurrentSnapshot}
+            type="button"
+            onClick={finalizeCurrentMonth}
+          >
+            Finalize Current Month
+          </button>
+        </div>
 
         {sortedSnapshots.length > 0 ? (
           sortedSnapshots.map((snapshot) => (
             <TotalsMonthBlock
               key={snapshot.monthId}
               label="Frozen"
+              onUndoFinalize={
+                snapshot === sortedSnapshots[0]
+                  ? undoLatestFinalization
+                  : undefined
+              }
               snapshot={snapshot}
             />
           ))

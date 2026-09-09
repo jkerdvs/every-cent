@@ -1081,33 +1081,6 @@ select {
   padding: 8px 48px 72px 8px;
 }
 
-.totals-header {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  margin: 0 0 42px;
-}
-
-.totals-header button {
-  height: 32px;
-  border: none;
-  border-radius: 7px;
-  background: #eeeeee;
-  padding: 0 14px;
-  color: #111111;
-  cursor: pointer;
-  font: inherit;
-}
-
-.totals-header button:hover:not(:disabled) {
-  background: #e4e4e4;
-}
-
-.totals-header button:disabled {
-  color: #777777;
-  cursor: default;
-}
-
 .totals-section {
   margin-bottom: 54px;
 }
@@ -1123,6 +1096,11 @@ select {
   border-top: 1px solid #eeeeee;
 }
 
+.totals-current-section .totals-month {
+  padding-top: 0;
+  border-top: none;
+}
+
 .totals-month + .totals-month {
   margin-top: 42px;
 }
@@ -1134,6 +1112,7 @@ select {
   margin-bottom: 22px;
 }
 
+.totals-month-heading h1,
 .totals-month-heading h2 {
   margin: 0;
   font-size: 20px;
@@ -1143,6 +1122,28 @@ select {
 .totals-month-heading span {
   color: #777777;
   font-size: 14px;
+}
+
+.totals-month-heading-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.totals-month-heading-actions button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #555555;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.totals-month-heading-actions button:hover {
+  color: #111111;
 }
 
 .totals-layout {
@@ -1218,6 +1219,40 @@ select {
 .totals-empty {
   margin: 0;
   color: #777777;
+}
+
+.totals-history-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin: 0 0 18px;
+}
+
+.totals-history-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.totals-history-heading button {
+  height: 32px;
+  border: none;
+  border-radius: 7px;
+  background: #eeeeee;
+  padding: 0 14px;
+  color: #111111;
+  cursor: pointer;
+  font: inherit;
+}
+
+.totals-history-heading button:hover:not(:disabled) {
+  background: #e4e4e4;
+}
+
+.totals-history-heading button:disabled {
+  color: #777777;
+  cursor: default;
 }
 
 .sheet-tabs {

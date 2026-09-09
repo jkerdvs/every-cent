@@ -4,14 +4,13 @@ import CurrentMonthPage from './pages/CurrentMonthPage'
 import OwnershipPage from './pages/OwnershipPage'
 import StoragePage from './pages/StoragePage'
 import SystemPage from './pages/SystemPage'
-import TotalsPage from './pages/TotalsPage'
+import SummaryPage from './pages/TotalsPage'
 
 const routes = [
   { path: '/', label: 'September 2026' },
-  { path: '/balance-sheet', label: 'Balance Sheet' },
   { path: '/ownership', label: 'Ownership' },
   { path: '/system', label: 'System' },
-  { path: '/totals', label: 'Totals' },
+  { path: '/summary', label: 'Summary' },
   { path: '/storage', label: 'Storage' },
 ]
 
@@ -20,7 +19,8 @@ function getCurrentPath() {
   if (window.location.pathname === '/ownership') return '/ownership'
   if (window.location.pathname === '/storage') return '/storage'
   if (window.location.pathname === '/system') return '/system'
-  if (window.location.pathname === '/totals') return '/totals'
+  if (window.location.pathname === '/summary') return '/summary'
+  if (window.location.pathname === '/totals') return '/summary'
 
   return '/'
 }
@@ -57,8 +57,8 @@ function App() {
         <StoragePage />
       ) : currentPath === '/system' ? (
         <SystemPage />
-      ) : currentPath === '/totals' ? (
-        <TotalsPage />
+      ) : currentPath === '/summary' ? (
+        <SummaryPage />
       ) : (
         <CurrentMonthPage />
       )}
