@@ -47,6 +47,8 @@ export const BALANCE_SHEET_STORAGE_KEY =
   'every-cent-balance-sheet-accounts'
 export const BALANCE_CATEGORIES_STORAGE_KEY =
   'every-cent-balance-sheet-account-types'
+export const BALANCE_RESET_ADJUSTMENTS_STORAGE_KEY =
+  'every-cent-balance-sheet-reset-adjustments'
 
 export const starterBalanceCategories: BalanceCategoryConfig[] = [
   { id: 'account-type-save', name: 'Save', order: 1 },
@@ -217,6 +219,55 @@ export function saveBalanceAccounts(accounts: BalanceAccount[]) {
   localStorage.setItem(BALANCE_SHEET_STORAGE_KEY, JSON.stringify(accounts))
 }
 
+function loadBalanceResetAdjustments() {
+  const savedAdjustments = localStorage.getItem(
+    BALANCE_RESET_ADJUSTMENTS_STORAGE_KEY,
+  )
+
+  if (!savedAdjustments) return new Map<string, number>()
+
+  try {
+    const parsedAdjustments = JSON.parse(savedAdjustments)
+
+    if (!Array.isArray(parsedAdjustments)) return new Map<string, number>()
+
+    return new Map(
+      parsedAdjustments
+        .map((adjustment): [string, number] | null => {
+          if (
+            typeof adjustment.accountId !== 'string' ||
+            typeof adjustment.adjustmentCents !== 'number' ||
+            !Number.isFinite(adjustment.adjustmentCents)
+          ) {
+            return null
+          }
+
+          return [
+            adjustment.accountId,
+            Math.round(adjustment.adjustmentCents),
+          ]
+        })
+        .filter((adjustment): adjustment is [string, number] =>
+          Boolean(adjustment),
+        ),
+    )
+  } catch {
+    return new Map<string, number>()
+  }
+}
+
+function saveBalanceResetAdjustments(adjustments: Map<string, number>) {
+  localStorage.setItem(
+    BALANCE_RESET_ADJUSTMENTS_STORAGE_KEY,
+    JSON.stringify(
+      [...adjustments.entries()].map(([accountId, adjustmentCents]) => ({
+        accountId,
+        adjustmentCents,
+      })),
+    ),
+  )
+}
+
 export function getTransactionAccounts(accounts: BalanceAccount[]) {
   return accounts.filter((account) => account.accountScope === 'transaction')
 }
@@ -302,6 +353,7 @@ export function getBalanceSections(
   accounts: BalanceAccount[],
   transactions: CurrentMonthEntry[],
 ) {
+  const resetAdjustments = loadBalanceResetAdjustments()
   const accountCategories = loadBalanceCategories()
   const configuredCategoryNames = new Set(
     accountCategories.map((category) => category.name),
@@ -321,14 +373,19 @@ export function getBalanceSections(
         const adjustmentCents = getAdjustmentForAccount(account, transactions)
         const investmentAdjustmentCents =
           getInvestmentCashAdjustmentForAccount(account.id)
+        const resetAdjustmentCents = resetAdjustments.get(account.id) ?? 0
         const balanceCents =
           account.baseBalanceCents +
           adjustmentCents +
-          investmentAdjustmentCents
+          investmentAdjustmentCents +
+          resetAdjustmentCents
 
         return {
           ...account,
-          adjustmentCents: adjustmentCents + investmentAdjustmentCents,
+          adjustmentCents:
+            adjustmentCents +
+            investmentAdjustmentCents +
+            resetAdjustmentCents,
           balanceCents,
           displayBalance: formatAccountBalance(balanceCents),
         }
@@ -346,4 +403,33 @@ export function getBalanceSections(
       displayNet: formatAccountBalance(netCents),
     }
   })
+}
+
+export function resetLiveBalanceSheet(
+  accounts: BalanceAccount[],
+  transactions: CurrentMonthEntry[],
+) {
+  const currentBalances = new Map<string, number>()
+
+  getBalanceSections(accounts, transactions).forEach((section) => {
+    section.accounts.forEach((account) => {
+      currentBalances.set(account.id, account.balanceCents)
+    })
+  })
+
+  const resetAdjustments = loadBalanceResetAdjustments()
+  const nextAdjustments = new Map<string, number>()
+
+  accounts.forEach((account) => {
+    const currentBalanceCents = currentBalances.get(account.id) ?? 0
+    const currentResetAdjustmentCents =
+      resetAdjustments.get(account.id) ?? 0
+
+    nextAdjustments.set(
+      account.id,
+      currentResetAdjustmentCents - currentBalanceCents,
+    )
+  })
+
+  saveBalanceResetAdjustments(nextAdjustments)
 }

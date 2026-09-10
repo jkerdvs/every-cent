@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
+import { loadBalanceAccounts } from '../data/balanceSheet'
+import {
+  loadInvestmentAccountConfigs,
+  sortInvestmentAccountConfigs,
+} from '../data/ownership'
 
 type SystemTrade = {
   id: number
+  accountId?: string
+  accountName?: string
   week: string
   day: string
   dataNumber: string
@@ -21,6 +28,8 @@ type SystemTrade = {
 const SYSTEM_STORAGE_KEY = 'every-cent-system-trades'
 
 const emptyTrade: Omit<SystemTrade, 'id'> = {
+  accountId: '',
+  accountName: '',
   week: '',
   day: '',
   dataNumber: '',
@@ -42,6 +51,25 @@ const callPutOptions = ['Call', 'Put']
 const winLossOptions = ['Win', 'Loss']
 const riskOptions = ['Yes', 'No', 'N/A']
 
+function getOptionsTradingAccounts() {
+  const balanceAccounts = loadBalanceAccounts()
+  const accountById = new Map(
+    balanceAccounts.map((account) => [account.id, account]),
+  )
+  const configs = loadInvestmentAccountConfigs(balanceAccounts).filter(
+    (config) => config.optionsTrading,
+  )
+
+  return sortInvestmentAccountConfigs(
+    configs,
+    (config) => accountById.get(config.accountId)?.name ?? '',
+  )
+    .map((config) => accountById.get(config.accountId))
+    .filter((account): account is NonNullable<typeof account> =>
+      Boolean(account),
+    )
+}
+
 function loadTrades() {
   const savedTrades = localStorage.getItem(SYSTEM_STORAGE_KEY)
 
@@ -57,6 +85,7 @@ function loadTrades() {
 function SystemPage() {
   const [trades, setTrades] = useState<SystemTrade[]>(loadTrades)
   const [entry, setEntry] = useState(emptyTrade)
+  const optionsTradingAccounts = getOptionsTradingAccounts()
 
   useEffect(() => {
     localStorage.setItem(SYSTEM_STORAGE_KEY, JSON.stringify(trades))
@@ -74,6 +103,9 @@ function SystemPage() {
 
   function addTrade() {
     const cleanTicker = entry.ticker.trim().toUpperCase()
+    const selectedAccount = optionsTradingAccounts.find(
+      (account) => account.id === entry.accountId,
+    )
 
     if (!cleanTicker) return
 
@@ -81,6 +113,7 @@ function SystemPage() {
       {
         ...entry,
         id: Date.now(),
+        accountName: selectedAccount?.name ?? entry.accountName,
         ticker: cleanTicker,
       },
       ...currentTrades,
@@ -93,6 +126,7 @@ function SystemPage() {
       <table className="system-table">
         <thead>
           <tr>
+            <th>Account</th>
             <th>Week</th>
             <th>Day</th>
             <th>Data #</th>
@@ -112,6 +146,30 @@ function SystemPage() {
 
         <tbody>
           <tr className="system-entry-row">
+            <td>
+              <select
+                aria-label="Options trading account"
+                value={entry.accountId}
+                onChange={(event) => {
+                  const account = optionsTradingAccounts.find(
+                    (item) => item.id === event.target.value,
+                  )
+
+                  setEntry((currentEntry) => ({
+                    ...currentEntry,
+                    accountId: account?.id ?? '',
+                    accountName: account?.name ?? '',
+                  }))
+                }}
+              >
+                <option value="">Account</option>
+                {optionsTradingAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </td>
             <td>
               <input
                 aria-label="Week"
@@ -284,6 +342,7 @@ function SystemPage() {
 
           {trades.map((trade) => (
             <tr className="system-trade-row" key={trade.id}>
+              <td>{trade.accountName ?? ''}</td>
               <td>{trade.week}</td>
               <td>{trade.day}</td>
               <td>{trade.dataNumber}</td>

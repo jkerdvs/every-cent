@@ -28,6 +28,9 @@ export type InvestmentTransaction = {
   ticker: string
   shares: number
   amountCents: number
+  totalProceedsCents?: number
+  netGainLossCents?: number
+  costBasisRemovedCents?: number
   affectsBalance?: boolean
 }
 
@@ -42,6 +45,8 @@ export type InvestmentAccountConfig = {
   id: string
   accountId: string
   order: number
+  startingCashCents: number
+  optionsTrading: boolean
 }
 
 export const HOLDINGS_STORAGE_KEY = 'every-cent-ownership-holdings'
@@ -91,6 +96,8 @@ export function parseMoneyInputToCents(value: string) {
 export function createInvestmentAccountConfig(
   accountId: string,
   order: number,
+  startingCashCents = 0,
+  optionsTrading = false,
 ): InvestmentAccountConfig {
   return {
     id: `investment-account-${Date.now()}-${Math.random()
@@ -98,6 +105,8 @@ export function createInvestmentAccountConfig(
       .slice(2)}`,
     accountId,
     order,
+    startingCashCents,
+    optionsTrading,
   }
 }
 
@@ -223,13 +232,29 @@ export function loadInvestmentTransactions() {
           Number.isFinite(transaction.amountCents)
             ? transaction.amountCents
             : 0
+        const totalProceedsCents =
+          typeof transaction.totalProceedsCents === 'number' &&
+          Number.isFinite(transaction.totalProceedsCents)
+            ? Math.round(transaction.totalProceedsCents)
+            : undefined
+        const netGainLossCents =
+          typeof transaction.netGainLossCents === 'number' &&
+          Number.isFinite(transaction.netGainLossCents)
+            ? Math.round(transaction.netGainLossCents)
+            : undefined
+        const costBasisRemovedCents =
+          typeof transaction.costBasisRemovedCents === 'number' &&
+          Number.isFinite(transaction.costBasisRemovedCents)
+            ? Math.round(transaction.costBasisRemovedCents)
+            : undefined
         const affectsBalance = transaction.affectsBalance !== false
 
         if (
           !type ||
           !ticker ||
           shares <= 0 ||
-          (amountCents <= 0 && affectsBalance)
+          (type === 'buy' && amountCents <= 0 && affectsBalance) ||
+          (type === 'sell' && amountCents < 0 && affectsBalance)
         ) {
           return null
         }
@@ -256,6 +281,9 @@ export function loadInvestmentTransactions() {
           ticker,
           shares,
           amountCents,
+          totalProceedsCents,
+          netGainLossCents,
+          costBasisRemovedCents,
           affectsBalance,
         }
       })
@@ -301,6 +329,12 @@ export function loadInvestmentAccountConfigs(
             Number.isFinite(config.order)
               ? Math.trunc(config.order)
               : index + 1,
+          startingCashCents:
+            typeof config.startingCashCents === 'number' &&
+            Number.isFinite(config.startingCashCents)
+              ? Math.round(config.startingCashCents)
+              : 0,
+          optionsTrading: config.optionsTrading === true,
         }
       })
       .filter((config): config is InvestmentAccountConfig =>
@@ -393,15 +427,20 @@ export function deriveInvestmentPositions(
     if (currentPosition.shares <= 0) return
 
     const basisRemoved =
-      transaction.shares >= currentPosition.shares
-        ? currentPosition.costBasisCents
-        : Math.round(
-            (currentPosition.costBasisCents * transaction.shares) /
-              currentPosition.shares,
-          )
+      typeof transaction.costBasisRemovedCents === 'number'
+        ? transaction.costBasisRemovedCents
+        : transaction.shares >= currentPosition.shares
+          ? currentPosition.costBasisCents
+          : Math.round(
+              (currentPosition.costBasisCents * transaction.shares) /
+                currentPosition.shares,
+            )
     const nextShares = currentPosition.shares - transaction.shares
+    const rawNextCostBasisCents = currentPosition.costBasisCents - basisRemoved
     const nextCostBasisCents =
-      nextShares <= 0 ? 0 : currentPosition.costBasisCents - basisRemoved
+      nextShares <= 0 || Math.abs(rawNextCostBasisCents) <= 1
+        ? 0
+        : rawNextCostBasisCents
 
     if (nextShares <= 0) {
       positionsByKey.delete(key)
@@ -460,40 +499,97 @@ export function validateInvestmentTransactions(
   transactions: InvestmentTransaction[],
   holdings = loadHoldings(),
 ) {
-  const sharesByKey = new Map<string, number>()
+  const positionsByKey = new Map<string, InvestmentPosition>()
 
   holdings.forEach((holding) => {
     const key = getPositionKey(holding.accountId, holding.ticker)
+    const currentPosition = positionsByKey.get(key) ?? {
+      accountId: holding.accountId,
+      ticker: holding.ticker,
+      shares: 0,
+      costBasisCents: 0,
+    }
 
-    sharesByKey.set(key, (sharesByKey.get(key) ?? 0) + holding.shares)
+    positionsByKey.set(key, {
+      ...currentPosition,
+      shares: currentPosition.shares + holding.shares,
+      costBasisCents:
+        currentPosition.costBasisCents + holding.costBasisCents,
+    })
   })
 
   for (const transaction of transactions) {
     const key = getPositionKey(transaction.accountId, transaction.ticker)
-    const currentShares = sharesByKey.get(key) ?? 0
+    const currentPosition = positionsByKey.get(key) ?? {
+      accountId: transaction.accountId,
+      ticker: transaction.ticker,
+      shares: 0,
+      costBasisCents: 0,
+    }
 
     if (transaction.type === 'buy') {
-      sharesByKey.set(key, currentShares + transaction.shares)
+      positionsByKey.set(key, {
+        ...currentPosition,
+        shares: currentPosition.shares + transaction.shares,
+        costBasisCents:
+          currentPosition.costBasisCents + transaction.amountCents,
+      })
       continue
     }
 
-    if (transaction.shares > currentShares) {
+    if (transaction.shares > currentPosition.shares) {
       return {
         valid: false,
         message: `Cannot sell ${formatShares(
           transaction.shares,
         )} shares of ${transaction.ticker}; only ${formatShares(
-          currentShares,
+          currentPosition.shares,
         )} shares are available at that point in the ledger.`,
       }
     }
 
-    const nextShares = currentShares - transaction.shares
+    const costBasisRemovedCents =
+      typeof transaction.costBasisRemovedCents === 'number'
+        ? transaction.costBasisRemovedCents
+        : transaction.shares >= currentPosition.shares
+          ? currentPosition.costBasisCents
+          : Math.round(
+              (currentPosition.costBasisCents * transaction.shares) /
+                currentPosition.shares,
+            )
+
+    if (costBasisRemovedCents < 0) {
+      return {
+        valid: false,
+        message: 'Sell cost basis removed cannot be negative.',
+      }
+    }
+
+    if (costBasisRemovedCents > currentPosition.costBasisCents + 1) {
+      return {
+        valid: false,
+        message: `Cannot remove ${formatMoney(
+          costBasisRemovedCents,
+        )} of cost basis from ${transaction.ticker}; only ${formatMoney(
+          currentPosition.costBasisCents,
+        )} is invested.`,
+      }
+    }
+
+    const nextShares = currentPosition.shares - transaction.shares
+    const rawNextCostBasisCents =
+      currentPosition.costBasisCents - costBasisRemovedCents
+    const nextCostBasisCents =
+      Math.abs(rawNextCostBasisCents) <= 1 ? 0 : rawNextCostBasisCents
 
     if (nextShares <= 0) {
-      sharesByKey.delete(key)
+      positionsByKey.delete(key)
     } else {
-      sharesByKey.set(key, nextShares)
+      positionsByKey.set(key, {
+        ...currentPosition,
+        shares: nextShares,
+        costBasisCents: nextCostBasisCents,
+      })
     }
   }
 

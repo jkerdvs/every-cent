@@ -6,6 +6,7 @@ import {
   loadBalanceCategories,
   loadBalanceAccounts,
   parseMoneyInputToCents,
+  resetLiveBalanceSheet,
   saveBalanceCategories,
   saveBalanceAccounts,
 } from '../data/balanceSheet'
@@ -15,6 +16,8 @@ import type {
   BalanceCategoryConfig,
 } from '../data/balanceSheet'
 import {
+  CURRENT_MONTH_LABEL,
+  loadCurrentMonthTransactions,
   clearCurrentMonthTransactionMedium,
   clearCurrentMonthTransactionCategory,
   clearCurrentMonthTransactionSubcategory,
@@ -25,6 +28,7 @@ import {
   loadTransactionSubcategories,
   loadTransactionTypes,
   renameCurrentMonthTransactionMedium,
+  saveCurrentMonthTransactions,
   saveTransactionCategories,
   saveTransactionSubcategories,
   saveTransactionTypes,
@@ -43,6 +47,47 @@ import {
   sortInvestmentAccountConfigs,
 } from '../data/ownership'
 import type { InvestmentAccountConfig } from '../data/ownership'
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <path
+        d="M3 6h18"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M8 6V4h8v2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M6 6l1 15h10l1-15"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M10 11v6M14 11v6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  )
+}
 
 function createStorageAccountId(prefix: string) {
   return `${prefix}-${Date.now()}`
@@ -82,6 +127,12 @@ function StoragePage() {
   )
   const [investmentAccountName, setInvestmentAccountName] = useState('')
   const [investmentAccountOrder, setInvestmentAccountOrder] = useState('')
+  const [investmentAccountStartingCash, setInvestmentAccountStartingCash] =
+    useState('')
+  const [
+    investmentAccountOptionsTrading,
+    setInvestmentAccountOptionsTrading,
+  ] = useState(false)
   const [investmentAccountMessage, setInvestmentAccountMessage] =
     useState('')
 
@@ -202,13 +253,13 @@ function StoragePage() {
 
     if (hasAccounts) {
       setAccountTypeMessage(
-        `Cannot delete "${categoryItem.name}" because accounts use this type.`,
+        `Cannot delete "${categoryItem.name}" because accounts use this category.`,
       )
       return
     }
 
     const confirmed = window.confirm(
-      `Delete "${categoryItem.name}"?\n\nThis will remove the account type from future Balance Sheet account selections.`,
+      `Delete "${categoryItem.name}"?\n\nThis will remove the account category from future Balance Sheet account selections.`,
     )
 
     if (!confirmed) return
@@ -322,6 +373,32 @@ function StoragePage() {
     )
   }
 
+  function updateInvestmentAccountStartingCash(
+    configId: string,
+    value: string,
+  ) {
+    const startingCashCents = parseMoneyInputToCents(value)
+
+    setInvestmentAccountConfigs((currentConfigs) =>
+      currentConfigs.map((config) =>
+        config.id === configId
+          ? { ...config, startingCashCents }
+          : config,
+      ),
+    )
+  }
+
+  function updateInvestmentAccountOptionsTrading(
+    configId: string,
+    optionsTrading: boolean,
+  ) {
+    setInvestmentAccountConfigs((currentConfigs) =>
+      currentConfigs.map((config) =>
+        config.id === configId ? { ...config, optionsTrading } : config,
+      ),
+    )
+  }
+
   function addInvestmentAccount() {
     const cleanName = investmentAccountName.trim()
     const order = Number(investmentAccountOrder)
@@ -345,10 +422,17 @@ function StoragePage() {
     setAccounts((currentAccounts) => [...currentAccounts, nextAccount])
     setInvestmentAccountConfigs((currentConfigs) => [
       ...currentConfigs,
-      createInvestmentAccountConfig(nextAccount.id, Math.trunc(order)),
+      createInvestmentAccountConfig(
+        nextAccount.id,
+        Math.trunc(order),
+        parseMoneyInputToCents(investmentAccountStartingCash),
+        investmentAccountOptionsTrading,
+      ),
     ])
     setInvestmentAccountName('')
     setInvestmentAccountOrder('')
+    setInvestmentAccountStartingCash('')
+    setInvestmentAccountOptionsTrading(false)
     setInvestmentAccountMessage('')
   }
 
@@ -494,13 +578,31 @@ function StoragePage() {
     )
   }
 
+  function clearCurrentMonthTransactions() {
+    const confirmed = window.confirm(
+      `Clear all transactions for ${CURRENT_MONTH_LABEL}?\n\nThis cannot be recovered through this action. Finalized historical months will not be deleted.`,
+    )
+
+    if (!confirmed) return
+
+    saveCurrentMonthTransactions([])
+  }
+
+  function resetBalanceSheet() {
+    const confirmed = window.confirm(
+      'Reset Balance Sheet?\n\nAll current Balance Sheet account balances will be reset to $0.00. Configured Starting Balance values will remain unchanged. Finalized historical months will not be changed.',
+    )
+
+    if (!confirmed) return
+
+    resetLiveBalanceSheet(accounts, loadCurrentMonthTransactions())
+  }
+
   return (
     <main className="storage-page">
-      <section className="storage-group">
-        <h1>Transaction Setup</h1>
-
-        <div className="storage-config-grid">
-          <section className="storage-section">
+      <section className="storage-group transaction-setup">
+        <div className="storage-config-grid transaction-setup-grid">
+          <section className="storage-section transaction-setup-section">
             <h2>Categories</h2>
 
             <div className="storage-list">
@@ -508,11 +610,12 @@ function StoragePage() {
                 <div className="storage-list-row" key={categoryItem.id}>
                   <span>{categoryItem.name}</span>
                   <button
+                    aria-label={`Delete ${categoryItem.name} category`}
                     className="delete-storage-account"
                     type="button"
                     onClick={() => deleteTransactionCategory(categoryItem)}
                   >
-                    Delete
+                    <TrashIcon />
                   </button>
                 </div>
               ))}
@@ -520,7 +623,6 @@ function StoragePage() {
               <div className="storage-list-row storage-entry-row">
                 <input
                   aria-label="New category name"
-                  placeholder="Category Name"
                   type="text"
                   value={newTransactionCategory}
                   onChange={(event) =>
@@ -528,17 +630,18 @@ function StoragePage() {
                   }
                 />
                 <button
+                  aria-label="Add category"
                   className="add-storage-account"
                   type="button"
                   onClick={addTransactionCategory}
                 >
-                  Add Category
+                  +
                 </button>
               </div>
             </div>
           </section>
 
-          <section className="storage-section">
+          <section className="storage-section transaction-setup-section">
             <h2>Descriptions</h2>
 
             <div className="storage-list">
@@ -547,13 +650,14 @@ function StoragePage() {
                   <div className="storage-list-row" key={subcategoryItem.id}>
                     <span>{subcategoryItem.name}</span>
                     <button
+                      aria-label={`Delete ${subcategoryItem.name} description`}
                       className="delete-storage-account"
                       type="button"
                       onClick={() =>
                         deleteTransactionSubcategory(subcategoryItem)
                       }
                     >
-                      Delete
+                      <TrashIcon />
                     </button>
                   </div>
                 ))
@@ -564,7 +668,6 @@ function StoragePage() {
               <div className="storage-list-row storage-entry-row">
                 <input
                   aria-label="New description name"
-                  placeholder="Description Name"
                   type="text"
                   value={newTransactionSubcategory}
                   onChange={(event) =>
@@ -572,17 +675,18 @@ function StoragePage() {
                   }
                 />
                 <button
+                  aria-label="Add description"
                   className="add-storage-account"
                   type="button"
                   onClick={addTransactionSubcategory}
                 >
-                  Add Description
+                  +
                 </button>
               </div>
             </div>
           </section>
 
-          <section className="storage-section">
+          <section className="storage-section transaction-setup-section">
             <h2>Transaction Types</h2>
 
             <div className="storage-list">
@@ -590,11 +694,12 @@ function StoragePage() {
                 <div className="storage-list-row" key={transactionType.id}>
                   <span>{transactionType.name}</span>
                   <button
+                    aria-label={`Delete ${transactionType.name} transaction type`}
                     className="delete-storage-account"
                     type="button"
                     onClick={() => deleteTransactionType(transactionType)}
                   >
-                    Delete
+                    <TrashIcon />
                   </button>
                 </div>
               ))}
@@ -602,7 +707,6 @@ function StoragePage() {
               <div className="storage-list-row storage-entry-row">
                 <input
                   aria-label="New transaction type"
-                  placeholder="Type"
                   type="text"
                   value={newTransactionType}
                   onChange={(event) =>
@@ -610,11 +714,12 @@ function StoragePage() {
                   }
                 />
                 <button
+                  aria-label="Add transaction type"
                   className="add-storage-account"
                   type="button"
                   onClick={addTransactionType}
                 >
-                  Add Type
+                  +
                 </button>
               </div>
             </div>
@@ -626,17 +731,15 @@ function StoragePage() {
         </div>
       </section>
 
-      <section className="storage-group">
-        <h1>Account Setup</h1>
-
-        <section className="storage-section">
-          <h2>Account Types</h2>
+      <section className="storage-group account-setup">
+        <section className="storage-section account-categories-section">
+          <h2>Account Categories</h2>
 
           <table className="storage-table storage-type-table">
             <thead>
               <tr>
                 <th>Order</th>
-                <th>Account Type</th>
+                <th>Account Category</th>
                 <th></th>
               </tr>
             </thead>
@@ -646,7 +749,7 @@ function StoragePage() {
                 <tr key={categoryItem.id}>
                   <td>
                     <input
-                      aria-label={`${categoryItem.name} account type order`}
+                      aria-label={`${categoryItem.name} account category order`}
                       type="number"
                       value={categoryItem.order}
                       onChange={(event) =>
@@ -659,7 +762,7 @@ function StoragePage() {
                   </td>
                   <td>
                     <input
-                      aria-label={`${categoryItem.name} account type name`}
+                      aria-label={`${categoryItem.name} account category name`}
                       type="text"
                       value={categoryItem.name}
                       onChange={(event) =>
@@ -672,11 +775,12 @@ function StoragePage() {
                   </td>
                   <td>
                     <button
+                      aria-label={`Delete ${categoryItem.name} account category`}
                       className="delete-storage-account"
                       type="button"
                       onClick={() => deleteAccountCategory(categoryItem)}
                     >
-                      Delete
+                      <TrashIcon />
                     </button>
                   </td>
                 </tr>
@@ -686,8 +790,7 @@ function StoragePage() {
                 <td></td>
                 <td>
                   <input
-                    aria-label="New account type name"
-                    placeholder="Account Type"
+                    aria-label="New account category name"
                     type="text"
                     value={newAccountTypeName}
                     onChange={(event) =>
@@ -701,11 +804,12 @@ function StoragePage() {
           </table>
 
           <button
+            aria-label="Add account category"
             className="add-storage-account"
             type="button"
             onClick={addAccountCategory}
           >
-            Add Account Type
+            +
           </button>
 
           {accountTypeMessage ? (
@@ -713,15 +817,15 @@ function StoragePage() {
           ) : null}
         </section>
 
-        <section className="storage-section">
+        <section className="storage-section accounts-section">
           <h2>Accounts</h2>
 
           <table className="storage-table">
             <thead>
               <tr>
-                <th>Account Type</th>
-                <th>Account</th>
-                <th>Base Balance</th>
+                <th>Account Category</th>
+                <th>Account Name</th>
+                <th>Starting Balance</th>
                 <th></th>
               </tr>
             </thead>
@@ -731,7 +835,7 @@ function StoragePage() {
                 <tr key={account.id}>
                   <td>
                     <select
-                      aria-label={`${account.name} account type`}
+                      aria-label={`${account.name} account category`}
                       value={account.category}
                       onChange={(event) =>
                         updateAccountType(account.id, event.target.value)
@@ -760,7 +864,7 @@ function StoragePage() {
                     <div className="storage-money-cell">
                       <span>$</span>
                       <input
-                        aria-label={`${account.name} base balance`}
+                        aria-label={`${account.name} starting balance`}
                         step="0.01"
                         type="number"
                         value={formatBaseBalanceInput(
@@ -775,11 +879,12 @@ function StoragePage() {
 
                   <td>
                     <button
+                      aria-label={`Delete ${account.name} account`}
                       className="delete-storage-account"
                       type="button"
                       onClick={() => deleteAccount(account)}
                     >
-                      Delete
+                      <TrashIcon />
                     </button>
                   </td>
                 </tr>
@@ -788,7 +893,7 @@ function StoragePage() {
               <tr className="storage-entry-row">
                 <td>
                   <select
-                    aria-label="New account type"
+                    aria-label="New account category"
                     value={selectedAccountCategory}
                     onChange={(event) => setCategory(event.target.value)}
                   >
@@ -803,7 +908,6 @@ function StoragePage() {
                 <td>
                   <input
                     aria-label="New account name"
-                    placeholder="Account Name"
                     type="text"
                     value={accountName}
                     onChange={(event) => setAccountName(event.target.value)}
@@ -814,8 +918,7 @@ function StoragePage() {
                   <div className="storage-money-cell">
                     <span>$</span>
                     <input
-                      aria-label="New account base balance"
-                      placeholder="Base Balance"
+                      aria-label="New account starting balance"
                       step="0.01"
                       type="number"
                       value={baseBalance}
@@ -830,19 +933,18 @@ function StoragePage() {
           </table>
 
           <button
+            aria-label="Add account"
             className="add-storage-account"
             type="button"
             onClick={addAccount}
           >
-            Add Account
+            +
           </button>
         </section>
       </section>
 
       <section className="storage-group">
-        <h1>Investment Setup</h1>
-
-        <section className="storage-section">
+        <section className="storage-section investment-accounts-section">
           <h2>Investment Accounts</h2>
 
           <table className="storage-table storage-investment-table">
@@ -850,6 +952,8 @@ function StoragePage() {
               <tr>
                 <th>Order</th>
                 <th>Investment Account</th>
+                <th>Starting Cash</th>
+                <th>Options Trading</th>
                 <th></th>
               </tr>
             </thead>
@@ -891,12 +995,48 @@ function StoragePage() {
                     </td>
 
                     <td>
+                      <div className="storage-money-cell">
+                        <span>$</span>
+                        <input
+                          aria-label={`${account.name} starting cash`}
+                          step="0.01"
+                          type="number"
+                          value={formatBaseBalanceInput(
+                            config.startingCashCents,
+                          )}
+                          onChange={(event) =>
+                            updateInvestmentAccountStartingCash(
+                              config.id,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                    </td>
+
+                    <td>
+                      <input
+                        aria-label={`${account.name} options trading`}
+                        checked={config.optionsTrading}
+                        className="storage-checkbox"
+                        type="checkbox"
+                        onChange={(event) =>
+                          updateInvestmentAccountOptionsTrading(
+                            config.id,
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </td>
+
+                    <td>
                       <button
+                        aria-label={`Delete ${account.name} investment account`}
                         className="delete-storage-account"
                         type="button"
                         onClick={() => deleteInvestmentAccount(config)}
                       >
-                        Delete
+                        <TrashIcon />
                       </button>
                     </td>
                   </tr>
@@ -907,7 +1047,6 @@ function StoragePage() {
                 <td>
                   <input
                     aria-label="New investment account order"
-                    placeholder="Order"
                     type="number"
                     value={investmentAccountOrder}
                     onChange={(event) =>
@@ -919,11 +1058,39 @@ function StoragePage() {
                 <td>
                   <input
                     aria-label="New investment account name"
-                    placeholder="Investment Account"
                     type="text"
                     value={investmentAccountName}
                     onChange={(event) =>
                       setInvestmentAccountName(event.target.value)
+                    }
+                  />
+                </td>
+
+                <td>
+                  <div className="storage-money-cell">
+                    <span>$</span>
+                    <input
+                      aria-label="New investment account starting cash"
+                      step="0.01"
+                      type="number"
+                      value={investmentAccountStartingCash}
+                      onChange={(event) =>
+                        setInvestmentAccountStartingCash(event.target.value)
+                      }
+                    />
+                  </div>
+                </td>
+
+                <td>
+                  <input
+                    aria-label="New investment account options trading"
+                    checked={investmentAccountOptionsTrading}
+                    className="storage-checkbox"
+                    type="checkbox"
+                    onChange={(event) =>
+                      setInvestmentAccountOptionsTrading(
+                        event.target.checked,
+                      )
                     }
                   />
                 </td>
@@ -934,17 +1101,28 @@ function StoragePage() {
           </table>
 
         <button
+          aria-label="Add investment account"
           className="add-storage-account"
           type="button"
           onClick={addInvestmentAccount}
         >
-          Add Investment Account
+          +
         </button>
 
         {investmentAccountMessage ? (
           <p className="storage-validation">{investmentAccountMessage}</p>
         ) : null}
       </section>
+      </section>
+
+      <section className="storage-controls" aria-label="Storage controls">
+        <button type="button" onClick={clearCurrentMonthTransactions}>
+          Clear Current Month Transactions
+        </button>
+
+        <button type="button" onClick={resetBalanceSheet}>
+          Reset Balance Sheet
+        </button>
       </section>
     </main>
   )

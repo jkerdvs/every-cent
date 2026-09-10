@@ -22,8 +22,58 @@ import {
 import type {
   Holding,
   InvestmentTransaction,
-  InvestmentTransactionType,
 } from '../data/ownership'
+
+function parseDateInput(value: string) {
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+
+  if (!match) return null
+
+  const month = Number(match[1])
+  const day = Number(match[2])
+  const year = Number(match[3])
+
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(year) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null
+  }
+
+  return year * 10000 + month * 100 + day
+}
+
+function formatInvestmentDate(value: number) {
+  if (value >= 10000000) {
+    const year = Math.floor(value / 10000)
+    const month = Math.floor((value % 10000) / 100)
+    const day = value % 100
+
+    return `${String(month).padStart(2, '0')}/${String(day).padStart(
+      2,
+      '0',
+    )}/${year}`
+  }
+
+  return value ? String(value) : ''
+}
+
+function parseSignedMoneyInputToCents(value: string) {
+  const normalizedValue = value.trim().replace(/[$,]/g, '')
+
+  if (!normalizedValue) return 0
+
+  const numericValue = Number(normalizedValue)
+
+  if (!Number.isFinite(numericValue)) return Number.NaN
+
+  return Math.round(numericValue * 100)
+}
 
 function getInvestmentAccounts() {
   const balanceAccounts = loadBalanceAccounts()
@@ -48,22 +98,36 @@ function OwnershipPage() {
     loadInvestmentTransactions,
   )
   const [holdings, setHoldings] = useState<Holding[]>(loadHoldings)
-  const [showTransactionEntry, setShowTransactionEntry] = useState(false)
+  const [showBuyEntry, setShowBuyEntry] = useState(false)
+  const [showSellEntry, setShowSellEntry] = useState(false)
   const [showHoldingEntry, setShowHoldingEntry] = useState(false)
-  const [date, setDate] = useState('')
-  const [type, setType] = useState<InvestmentTransactionType>('buy')
-  const [accountId, setAccountId] = useState(
+  const [showRemoveHoldingEntry, setShowRemoveHoldingEntry] =
+    useState(false)
+  const [buyDate, setBuyDate] = useState('')
+  const [buyAccountId, setBuyAccountId] = useState(
+    () => getInvestmentAccounts()[0]?.id ?? '',
+  )
+  const [sellDate, setSellDate] = useState('')
+  const [sellAccountId, setSellAccountId] = useState(
     () => getInvestmentAccounts()[0]?.id ?? '',
   )
   const [holdingAccountId, setHoldingAccountId] = useState(
     () => getInvestmentAccounts()[0]?.id ?? '',
   )
-  const [ticker, setTicker] = useState('')
-  const [shares, setShares] = useState('')
-  const [amountDigits, setAmountDigits] = useState('')
+  const [removeHoldingAccountId, setRemoveHoldingAccountId] = useState(
+    () => getInvestmentAccounts()[0]?.id ?? '',
+  )
+  const [buyTicker, setBuyTicker] = useState('')
+  const [buyShares, setBuyShares] = useState('')
+  const [buyCostBasisDigits, setBuyCostBasisDigits] = useState('')
+  const [sellTicker, setSellTicker] = useState('')
+  const [sellShares, setSellShares] = useState('')
+  const [sellProceedsDigits, setSellProceedsDigits] = useState('')
+  const [sellNetGainLoss, setSellNetGainLoss] = useState('')
   const [holdingTicker, setHoldingTicker] = useState('')
   const [holdingShares, setHoldingShares] = useState('')
   const [holdingCostBasisDigits, setHoldingCostBasisDigits] = useState('')
+  const [removeHoldingTicker, setRemoveHoldingTicker] = useState('')
   const [validationMessage, setValidationMessage] = useState('')
 
   useEffect(() => {
@@ -97,14 +161,34 @@ function OwnershipPage() {
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => b.id - a.id)
   }, [transactions])
+  const removeHoldingTickerOptions = useMemo(() => {
+    return positions
+      .filter((position) => position.accountId === removeHoldingAccountId)
+      .map((position) => position.ticker)
+  }, [positions, removeHoldingAccountId])
+  const sellTickerOptions = useMemo(() => {
+    return positions
+      .filter((position) => position.accountId === sellAccountId)
+      .map((position) => position.ticker)
+  }, [positions, sellAccountId])
 
-  const amountCents = amountDigits ? Number(amountDigits) : 0
+  const buyCostBasisCents = buyCostBasisDigits
+    ? Number(buyCostBasisDigits)
+    : 0
+  const sellProceedsCents = sellProceedsDigits
+    ? Number(sellProceedsDigits)
+    : 0
+  const sellNetGainLossCents = parseSignedMoneyInputToCents(sellNetGainLoss)
   const holdingCostBasisCents = holdingCostBasisDigits
     ? Number(holdingCostBasisDigits)
     : 0
 
-  function updateAmount(value: string) {
-    setAmountDigits(value.replace(/\D/g, ''))
+  function updateBuyCostBasis(value: string) {
+    setBuyCostBasisDigits(value.replace(/\D/g, ''))
+  }
+
+  function updateSellProceeds(value: string) {
+    setSellProceedsDigits(value.replace(/\D/g, ''))
   }
 
   function updateHoldingCostBasis(value: string) {
@@ -123,49 +207,35 @@ function OwnershipPage() {
     )
   }
 
-  function addInvestmentTransaction() {
-    const cleanTicker = ticker.trim().toUpperCase()
-    const parsedShares = Number(shares)
-    const account = accountById.get(accountId)
+  function addBuyTransaction() {
+    const cleanTicker = buyTicker.trim().toUpperCase()
+    const parsedShares = Number(buyShares)
+    const parsedDate = parseDateInput(buyDate)
+    const account = accountById.get(buyAccountId)
 
     if (
       !account ||
+      parsedDate === null ||
       !cleanTicker ||
       !Number.isFinite(parsedShares) ||
       parsedShares <= 0 ||
-      amountCents <= 0
+      buyCostBasisCents <= 0
     ) {
       setValidationMessage(
-        'Enter an account, ticker, positive shares, and a positive amount.',
+        'Enter a date as MM/DD/YYYY, account, ticker, positive shares, and a positive cost basis.',
       )
       return
     }
 
-    if (type === 'sell') {
-      const currentPosition = getPosition(accountId, cleanTicker)
-      const currentShares = currentPosition?.shares ?? 0
-
-      if (parsedShares > currentShares) {
-        setValidationMessage(
-          `Cannot sell ${formatShares(
-            parsedShares,
-          )} shares of ${cleanTicker}; only ${formatShares(
-            currentShares,
-          )} shares are available.`,
-        )
-        return
-      }
-    }
-
     const nextTransaction: InvestmentTransaction = {
       id: Date.now(),
-      date: date ? Number(date) : 0,
-      type,
+      date: parsedDate,
+      type: 'buy',
       accountId: account.id,
       accountName: getAccountName(account),
       ticker: cleanTicker,
       shares: parsedShares,
-      amountCents,
+      amountCents: buyCostBasisCents,
     }
     const nextTransactions = [...transactions, nextTransaction]
     const validation = validateInvestmentTransactions(
@@ -179,11 +249,98 @@ function OwnershipPage() {
     }
 
     setTransactions(nextTransactions)
-    setDate('')
-    setType('buy')
-    setTicker('')
-    setShares('')
-    setAmountDigits('')
+    setBuyDate('')
+    setBuyTicker('')
+    setBuyShares('')
+    setBuyCostBasisDigits('')
+    setValidationMessage('')
+  }
+
+  function addSellTransaction() {
+    const cleanTicker = sellTicker.trim().toUpperCase()
+    const parsedShares = Number(sellShares)
+    const parsedDate = parseDateInput(sellDate)
+    const account = accountById.get(sellAccountId)
+    const currentPosition = getPosition(sellAccountId, cleanTicker)
+    const currentShares = currentPosition?.shares ?? 0
+    const currentCostBasisCents = currentPosition?.costBasisCents ?? 0
+    const costBasisRemovedCents =
+      sellProceedsCents - sellNetGainLossCents
+
+    if (
+      !account ||
+      parsedDate === null ||
+      !cleanTicker ||
+      !Number.isFinite(parsedShares) ||
+      parsedShares <= 0 ||
+      sellProceedsCents < 0 ||
+      !Number.isFinite(sellNetGainLossCents)
+    ) {
+      setValidationMessage(
+        'Enter a date as MM/DD/YYYY, account, ticker, positive shares, total proceeds, and a valid net gain/loss.',
+      )
+      return
+    }
+
+    if (parsedShares > currentShares) {
+      setValidationMessage(
+        `Cannot sell ${formatShares(
+          parsedShares,
+        )} shares of ${cleanTicker}; only ${formatShares(
+          currentShares,
+        )} shares are available.`,
+      )
+      return
+    }
+
+    if (costBasisRemovedCents < 0) {
+      setValidationMessage(
+        'Net gain/loss cannot imply a negative cost basis removed.',
+      )
+      return
+    }
+
+    if (costBasisRemovedCents > currentCostBasisCents + 1) {
+      setValidationMessage(
+        `Cannot remove ${formatMoney(
+          costBasisRemovedCents,
+        )} of cost basis from ${cleanTicker}; only ${formatMoney(
+          currentCostBasisCents,
+        )} is invested.`,
+      )
+      return
+    }
+
+    const nextTransaction: InvestmentTransaction = {
+      id: Date.now(),
+      date: parsedDate,
+      type: 'sell',
+      accountId: account.id,
+      accountName: getAccountName(account),
+      ticker: cleanTicker,
+      shares: parsedShares,
+      amountCents: sellProceedsCents,
+      totalProceedsCents: sellProceedsCents,
+      netGainLossCents: sellNetGainLossCents,
+      costBasisRemovedCents,
+    }
+    const nextTransactions = [...transactions, nextTransaction]
+    const validation = validateInvestmentTransactions(
+      nextTransactions,
+      holdings,
+    )
+
+    if (!validation.valid) {
+      setValidationMessage(validation.message)
+      return
+    }
+
+    setTransactions(nextTransactions)
+    setSellDate('')
+    setSellTicker('')
+    setSellShares('')
+    setSellProceedsDigits('')
+    setSellNetGainLoss('')
     setValidationMessage('')
   }
 
@@ -242,15 +399,61 @@ function OwnershipPage() {
     setValidationMessage('')
   }
 
+  function removeHolding() {
+    const cleanTicker = removeHoldingTicker.trim().toUpperCase()
+    const account = accountById.get(removeHoldingAccountId)
+    const hasMatchingPosition = positions.some(
+      (position) =>
+        position.accountId === removeHoldingAccountId &&
+        position.ticker === cleanTicker,
+    )
+
+    if (!account || !cleanTicker || !hasMatchingPosition) {
+      setValidationMessage('Select an investment account and holding.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${cleanTicker} from ${getAccountName(
+        account,
+      )}?\n\nThis will permanently delete the holding, shares, cost basis, and related equity transactions for this account.`,
+    )
+
+    if (!confirmed) return
+
+    setHoldings((currentHoldings) =>
+      currentHoldings.filter(
+        (holding) =>
+          holding.accountId !== removeHoldingAccountId ||
+          holding.ticker !== cleanTicker,
+      ),
+    )
+    setTransactions((currentTransactions) =>
+      currentTransactions.filter(
+        (transaction) =>
+          transaction.accountId !== removeHoldingAccountId ||
+          transaction.ticker !== cleanTicker,
+      ),
+    )
+    setRemoveHoldingTicker('')
+    setValidationMessage('')
+  }
+
   return (
     <main className="ownership-page">
       <div className="ownership-layout">
         <section className="ownership-portfolio">
           <div className="ownership-account-grid">
             {investmentAccounts.map((account) => {
-              const accountPositions = positions.filter(
-                (position) => position.accountId === account.id,
-              )
+              const accountPositions = positions
+                .filter((position) => position.accountId === account.id)
+                .sort((a, b) => {
+                  if (a.costBasisCents !== b.costBasisCents) {
+                    return b.costBasisCents - a.costBasisCents
+                  }
+
+                  return a.ticker.localeCompare(b.ticker)
+                })
 
               return (
                 <section
@@ -318,17 +521,35 @@ function OwnershipPage() {
       <section className="investment-ledger-section investment-entry-section">
         <div className="ownership-action-row">
           <button
-            aria-expanded={showTransactionEntry}
+            aria-expanded={showBuyEntry}
             className={`ownership-entry-toggle ${
-              showTransactionEntry ? 'active' : ''
+              showBuyEntry ? 'active' : ''
             }`}
             type="button"
             onClick={() => {
-              setShowTransactionEntry((isOpen) => !isOpen)
+              setShowBuyEntry((isOpen) => !isOpen)
+              setShowSellEntry(false)
               setShowHoldingEntry(false)
+              setShowRemoveHoldingEntry(false)
             }}
           >
-            Transaction
+            Buy
+          </button>
+
+          <button
+            aria-expanded={showSellEntry}
+            className={`ownership-entry-toggle ${
+              showSellEntry ? 'active' : ''
+            }`}
+            type="button"
+            onClick={() => {
+              setShowSellEntry((isOpen) => !isOpen)
+              setShowBuyEntry(false)
+              setShowHoldingEntry(false)
+              setShowRemoveHoldingEntry(false)
+            }}
+          >
+            Sell
           </button>
 
           <button
@@ -339,48 +560,50 @@ function OwnershipPage() {
             type="button"
             onClick={() => {
               setShowHoldingEntry((isOpen) => !isOpen)
-              setShowTransactionEntry(false)
+              setShowBuyEntry(false)
+              setShowSellEntry(false)
+              setShowRemoveHoldingEntry(false)
             }}
           >
             Add Current Holding
           </button>
+
+          <button
+            aria-expanded={showRemoveHoldingEntry}
+            className={`ownership-entry-toggle ${
+              showRemoveHoldingEntry ? 'active' : ''
+            }`}
+            type="button"
+            onClick={() => {
+              setShowRemoveHoldingEntry((isOpen) => !isOpen)
+              setShowBuyEntry(false)
+              setShowSellEntry(false)
+              setShowHoldingEntry(false)
+            }}
+          >
+            Remove Holding
+          </button>
         </div>
 
-        {showTransactionEntry ? (
-          <div className="investment-entry">
+        {showBuyEntry ? (
+          <div className="buy-entry">
             <label>
               <span>Date</span>
               <input
-                aria-label="Investment date"
-                placeholder="Day"
-                type="number"
-                min="1"
-                max="31"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
+                aria-label="Buy date"
+                placeholder="MM/DD/YYYY"
+                type="text"
+                value={buyDate}
+                onChange={(event) => setBuyDate(event.target.value)}
               />
-            </label>
-
-            <label>
-              <span>Type</span>
-              <select
-                aria-label="Buy or sell"
-                value={type}
-                onChange={(event) =>
-                  setType(event.target.value as InvestmentTransactionType)
-                }
-              >
-                <option value="buy">Buy</option>
-                <option value="sell">Sell</option>
-              </select>
             </label>
 
             <label>
               <span>Account</span>
               <select
-                aria-label="Investment account"
-                value={accountId}
-                onChange={(event) => setAccountId(event.target.value)}
+                aria-label="Buy investment account"
+                value={buyAccountId}
+                onChange={(event) => setBuyAccountId(event.target.value)}
               >
                 {investmentAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -393,12 +616,12 @@ function OwnershipPage() {
             <label>
               <span>Ticker</span>
               <input
-                aria-label="Ticker"
+                aria-label="Buy ticker"
                 placeholder="Ticker"
                 type="text"
-                value={ticker}
+                value={buyTicker}
                 onChange={(event) =>
-                  setTicker(event.target.value.toUpperCase())
+                  setBuyTicker(event.target.value.toUpperCase())
                 }
               />
             </label>
@@ -406,32 +629,132 @@ function OwnershipPage() {
             <label>
               <span>Shares</span>
               <input
-                aria-label="Shares"
+                aria-label="Buy shares"
                 placeholder="Shares"
                 type="number"
                 step="any"
-                value={shares}
-                onChange={(event) => setShares(event.target.value)}
+                value={buyShares}
+                onChange={(event) => setBuyShares(event.target.value)}
               />
             </label>
 
             <label>
-              <span>Amount</span>
+              <span>Cost Basis</span>
               <div className="investment-amount-field">
                 <span>$</span>
                 <input
-                  aria-label="Transaction Amount"
+                  aria-label="Buy cost basis"
                   inputMode="numeric"
-                  placeholder="Amount"
+                  placeholder="Cost Basis"
                   type="text"
-                  value={formatMoneyInput(amountCents)}
-                  onChange={(event) => updateAmount(event.target.value)}
+                  value={formatMoneyInput(buyCostBasisCents)}
+                  onChange={(event) =>
+                    updateBuyCostBasis(event.target.value)
+                  }
                 />
               </div>
             </label>
 
-            <button type="button" onClick={addInvestmentTransaction}>
-              Add Transaction
+            <button aria-label="Add buy" type="button" onClick={addBuyTransaction}>
+              +
+            </button>
+          </div>
+        ) : null}
+
+        {showSellEntry ? (
+          <div className="sell-entry">
+            <label>
+              <span>Date</span>
+              <input
+                aria-label="Sell date"
+                placeholder="MM/DD/YYYY"
+                type="text"
+                value={sellDate}
+                onChange={(event) => setSellDate(event.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Account</span>
+              <select
+                aria-label="Sell investment account"
+                value={sellAccountId}
+                onChange={(event) => {
+                  setSellAccountId(event.target.value)
+                  setSellTicker('')
+                }}
+              >
+                {investmentAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {getAccountName(account)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Ticker</span>
+              <select
+                aria-label="Sell ticker"
+                value={sellTicker}
+                onChange={(event) => setSellTicker(event.target.value)}
+              >
+                <option value="">Ticker</option>
+                {sellTickerOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Shares</span>
+              <input
+                aria-label="Sell shares"
+                placeholder="Shares"
+                type="number"
+                step="any"
+                value={sellShares}
+                onChange={(event) => setSellShares(event.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Total Proceeds</span>
+              <div className="investment-amount-field">
+                <span>$</span>
+                <input
+                  aria-label="Sell total proceeds"
+                  inputMode="numeric"
+                  placeholder="Total Proceeds"
+                  type="text"
+                  value={formatMoneyInput(sellProceedsCents)}
+                  onChange={(event) =>
+                    updateSellProceeds(event.target.value)
+                  }
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Net Gain/Loss</span>
+              <div className="investment-amount-field">
+                <span>$</span>
+                <input
+                  aria-label="Sell net gain or loss"
+                  placeholder="0.00"
+                  type="text"
+                  value={sellNetGainLoss}
+                  onChange={(event) =>
+                    setSellNetGainLoss(event.target.value)
+                  }
+                />
+              </div>
+            </label>
+
+            <button aria-label="Add sell" type="button" onClick={addSellTransaction}>
+              −
             </button>
           </div>
         ) : null}
@@ -501,6 +824,50 @@ function OwnershipPage() {
           </div>
         ) : null}
 
+        {showRemoveHoldingEntry ? (
+          <div className="remove-holding-entry">
+            <label>
+              <span>Account</span>
+              <select
+                aria-label="Remove holding account"
+                value={removeHoldingAccountId}
+                onChange={(event) => {
+                  setRemoveHoldingAccountId(event.target.value)
+                  setRemoveHoldingTicker('')
+                }}
+              >
+                {investmentAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {getAccountName(account)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Ticker</span>
+              <select
+                aria-label="Remove holding ticker"
+                value={removeHoldingTicker}
+                onChange={(event) =>
+                  setRemoveHoldingTicker(event.target.value)
+                }
+              >
+                <option value="">Ticker</option>
+                {removeHoldingTickerOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button type="button" onClick={removeHolding}>
+              Remove Holding
+            </button>
+          </div>
+        ) : null}
+
         {validationMessage ? (
           <p className="ownership-validation">{validationMessage}</p>
         ) : null}
@@ -525,7 +892,7 @@ function OwnershipPage() {
           <tbody>
             {sortedTransactions.map((transaction) => (
               <tr key={transaction.id}>
-                <td>{transaction.date || ''}</td>
+                <td>{formatInvestmentDate(transaction.date)}</td>
                 <td className={`investment-type ${transaction.type}`}>
                   {transaction.type === 'buy' ? 'Buy' : 'Sell'}
                 </td>

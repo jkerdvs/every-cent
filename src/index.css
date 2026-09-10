@@ -355,11 +355,16 @@ select {
 }
 
 .add-transaction {
+  display: inline-flex;
+  width: 30px;
   height: 30px;
+  min-width: 30px;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 6px;
   background: #111111;
-  padding: 0 11px;
+  padding: 0;
   color: #ffffff;
   cursor: pointer;
   font-size: 13px;
@@ -464,7 +469,7 @@ select {
 }
 
 .storage-group + .storage-group {
-  margin-top: 54px;
+  margin-top: 46px;
 }
 
 .storage-group > h1 {
@@ -635,6 +640,13 @@ select {
   text-align: right;
 }
 
+.storage-checkbox {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #111111;
+}
+
 .storage-entry-row,
 .storage-table tbody tr.storage-entry-row td {
   border-top: none;
@@ -642,7 +654,12 @@ select {
 
 .add-storage-account,
 .delete-storage-account {
-  padding: 0 11px;
+  display: inline-flex;
+  width: 26px;
+  min-width: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   cursor: pointer;
 }
 
@@ -654,6 +671,7 @@ select {
 
 .delete-storage-account {
   border-color: transparent;
+  background: transparent;
   color: #777777;
 }
 
@@ -663,6 +681,231 @@ select {
 
 .delete-storage-account:hover {
   background: #f4f4f4;
+  color: #111111;
+}
+
+.transaction-setup {
+  width: max-content;
+  max-width: 100%;
+}
+
+.transaction-setup > h1 {
+  margin-bottom: 14px;
+  font-size: 22px;
+}
+
+.transaction-setup-grid {
+  grid-template-columns: repeat(3, minmax(155px, 190px));
+  gap: 22px;
+}
+
+.transaction-setup-section h2 {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.transaction-setup-section .storage-list {
+  width: 100%;
+  gap: 4px;
+}
+
+.transaction-setup-section .storage-list-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 24px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.transaction-setup-section .storage-entry-row {
+  margin-top: 3px;
+}
+
+.transaction-setup-section .storage-list input,
+.transaction-setup-section .add-storage-account,
+.transaction-setup-section .delete-storage-account {
+  height: 26px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.transaction-setup-section .storage-list input {
+  min-width: 0;
+  width: 100%;
+  padding: 0 7px;
+}
+
+.transaction-setup-section .storage-empty {
+  font-size: 13px;
+}
+
+.transaction-setup-section .storage-validation {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.account-setup > h1 {
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+
+.account-setup .storage-section + .storage-section {
+  margin-top: 26px;
+}
+
+.account-setup .storage-section h2 {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.account-setup .storage-table {
+  font-size: 13px;
+}
+
+.account-setup .storage-table th {
+  padding: 0 12px 5px 0;
+}
+
+.account-setup .storage-table td {
+  padding: 4px 12px 4px 0;
+}
+
+.account-setup .storage-table select,
+.account-setup .storage-table input,
+.account-setup .storage-money-cell,
+.account-setup .add-storage-account,
+.account-setup .delete-storage-account {
+  height: 26px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.account-setup .storage-table select,
+.account-setup .storage-table input {
+  padding: 0 7px;
+}
+
+.account-setup .storage-table select {
+  width: 132px;
+}
+
+.account-setup .storage-table td:nth-child(2) input {
+  width: 180px;
+}
+
+.account-categories-section .storage-table td:nth-child(2) input {
+  width: 170px;
+}
+
+.account-setup .storage-type-table td:first-child input {
+  width: 54px;
+}
+
+.account-setup .storage-money-cell {
+  gap: 4px;
+  padding: 0 7px;
+}
+
+.account-setup .storage-money-cell input {
+  width: 92px;
+  height: auto;
+  padding: 0;
+}
+
+.account-setup .add-storage-account {
+  margin-top: 4px;
+}
+
+.account-setup .storage-validation {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.investment-accounts-section h2 {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.investment-accounts-section .storage-table {
+  font-size: 13px;
+}
+
+.investment-accounts-section .storage-table th {
+  padding: 0 12px 5px 0;
+}
+
+.investment-accounts-section .storage-table td {
+  padding: 4px 12px 4px 0;
+}
+
+.investment-accounts-section .storage-table input,
+.investment-accounts-section .storage-money-cell,
+.investment-accounts-section .add-storage-account,
+.investment-accounts-section .delete-storage-account {
+  height: 26px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.investment-accounts-section .storage-table input {
+  padding: 0 7px;
+}
+
+.investment-accounts-section .storage-investment-table td:first-child input {
+  width: 54px;
+}
+
+.investment-accounts-section .storage-investment-table td:nth-child(2) input {
+  width: 180px;
+}
+
+.investment-accounts-section .storage-money-cell {
+  gap: 4px;
+  padding: 0 7px;
+}
+
+.investment-accounts-section .storage-money-cell input {
+  width: 92px;
+  height: auto;
+  padding: 0;
+}
+
+.investment-accounts-section .storage-checkbox {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+}
+
+.investment-accounts-section .add-storage-account {
+  margin-top: 4px;
+}
+
+.investment-accounts-section .storage-validation {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.storage-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 46px;
+}
+
+.storage-controls button {
+  min-height: 32px;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  padding: 0;
+  color: #777777;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.storage-controls button:hover {
   color: #111111;
 }
 
@@ -851,12 +1094,22 @@ select {
   font-weight: 700;
 }
 
-.investment-entry {
+.investment-entry,
+.buy-entry {
   display: grid;
-  grid-template-columns: 66px 84px minmax(118px, 140px) 82px 82px 118px auto;
+  grid-template-columns: 104px minmax(118px, 140px) 82px 82px 118px auto;
   gap: 7px;
   margin-top: 8px;
-  max-width: 760px;
+  max-width: 590px;
+  align-items: end;
+}
+
+.sell-entry {
+  display: grid;
+  grid-template-columns: 104px minmax(118px, 140px) 82px 82px 118px 118px auto;
+  gap: 7px;
+  margin-top: 8px;
+  max-width: 720px;
   align-items: end;
 }
 
@@ -869,15 +1122,30 @@ select {
   align-items: end;
 }
 
+.remove-holding-entry {
+  display: grid;
+  grid-template-columns: minmax(118px, 140px) 82px auto;
+  gap: 7px;
+  margin-top: 8px;
+  max-width: 330px;
+  align-items: end;
+}
+
 .investment-entry label,
-.current-holding-entry label {
+.buy-entry label,
+.sell-entry label,
+.current-holding-entry label,
+.remove-holding-entry label {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
 .investment-entry label > span,
-.current-holding-entry label > span {
+.buy-entry label > span,
+.sell-entry label > span,
+.current-holding-entry label > span,
+.remove-holding-entry label > span {
   color: #666666;
   font-size: 11px;
   line-height: 1;
@@ -885,8 +1153,13 @@ select {
 
 .investment-entry input,
 .investment-entry select,
+.buy-entry input,
+.buy-entry select,
+.sell-entry input,
+.sell-entry select,
 .current-holding-entry input,
-.current-holding-entry select {
+.current-holding-entry select,
+.remove-holding-entry select {
   width: 100%;
   height: 30px;
   border: 1px solid #e5e5e5;
@@ -900,8 +1173,13 @@ select {
 
 .investment-entry input:focus,
 .investment-entry select:focus,
+.buy-entry input:focus,
+.buy-entry select:focus,
+.sell-entry input:focus,
+.sell-entry select:focus,
 .current-holding-entry input:focus,
 .current-holding-entry select:focus,
+.remove-holding-entry select:focus,
 .investment-amount-field:focus-within {
   border-color: #111111;
 }
@@ -935,8 +1213,12 @@ select {
 }
 
 .investment-entry button,
-.current-holding-entry button {
+.buy-entry button,
+.sell-entry button,
+.current-holding-entry button,
+.remove-holding-entry button {
   height: 30px;
+  min-width: 30px;
   border: none;
   border-radius: 6px;
   background: #111111;
@@ -949,7 +1231,10 @@ select {
 }
 
 .investment-entry button:hover,
-.current-holding-entry button:hover {
+.buy-entry button:hover,
+.sell-entry button:hover,
+.current-holding-entry button:hover,
+.remove-holding-entry button:hover {
   background: #333333;
 }
 
@@ -1315,6 +1600,11 @@ select {
   .storage-config-grid {
     grid-template-columns: repeat(2, minmax(180px, max-content));
   }
+
+  .transaction-setup-grid {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    width: 100%;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1343,12 +1633,23 @@ select {
     gap: 34px;
   }
 
+  .transaction-setup {
+    width: 100%;
+  }
+
+  .transaction-setup-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
   .ownership-account-grid {
     grid-template-columns: minmax(120px, 160px);
     gap: 34px;
   }
 
   .investment-entry,
+  .buy-entry,
+  .sell-entry,
   .current-holding-entry {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -1356,10 +1657,16 @@ select {
 
   .investment-entry input,
   .investment-entry select,
+  .buy-entry input,
+  .buy-entry select,
+  .sell-entry input,
+  .sell-entry select,
   .current-holding-entry input,
   .current-holding-entry select,
   .investment-amount-field,
   .investment-entry button,
+  .buy-entry button,
+  .sell-entry button,
   .current-holding-entry button {
     height: 40px;
   }
@@ -1367,6 +1674,13 @@ select {
   .investment-entry label:nth-child(3),
   .investment-entry label:nth-child(6),
   .investment-entry button,
+  .buy-entry label:nth-child(2),
+  .buy-entry label:nth-child(5),
+  .buy-entry button,
+  .sell-entry label:nth-child(2),
+  .sell-entry label:nth-child(5),
+  .sell-entry label:nth-child(6),
+  .sell-entry button,
   .current-holding-entry label:nth-child(1),
   .current-holding-entry label:nth-child(4),
   .current-holding-entry button {
@@ -1374,6 +1688,8 @@ select {
   }
 
   .investment-entry button,
+  .buy-entry button,
+  .sell-entry button,
   .current-holding-entry button {
     justify-self: start;
     min-width: 150px;
@@ -1435,7 +1751,8 @@ select {
   .add-transaction {
     grid-column: 1 / -1;
     justify-self: start;
-    min-width: 150px;
+    width: 40px;
+    min-width: 40px;
   }
 
   .transaction-ledger {
@@ -1494,7 +1811,7 @@ select {
     font-size: 12px;
   }
 
-  .transaction-row td[data-label='Medium'] {
+  .transaction-row td[data-label='Account'] {
     grid-column: 2;
     color: #666666;
     font-size: 12px;
@@ -1504,7 +1821,7 @@ select {
     display: none;
   }
 
-  .transaction-row td[data-label='Amount'] {
+  .transaction-row td[data-label='$'] {
     grid-column: 3;
     grid-row: 1;
     align-self: start;

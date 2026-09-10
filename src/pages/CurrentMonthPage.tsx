@@ -132,7 +132,9 @@ function CurrentMonthPage() {
     return cashTransactionAccounts.map((account) => account.name)
   }, [cashTransactionAccounts])
   const transferAccountOptions = useMemo(() => {
-    return accounts.map((account) => account.name)
+    return accounts
+      .filter((account) => account.category !== 'Credit')
+      .map((account) => account.name)
   }, [accounts])
   const categoryOptions = useMemo(() => {
     return loadTransactionCategories().map((item) => item.name)
@@ -455,9 +457,7 @@ function CurrentMonthPage() {
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
               >
-                <option value="" disabled>
-                  Select
-                </option>
+                <option value="" disabled></option>
 
                 {categoryOptions.map((item) => (
                   <option key={item} value={item}>
@@ -475,7 +475,7 @@ function CurrentMonthPage() {
                 onChange={(event) => setSubcategory(event.target.value)}
               >
                 <option value="" disabled={subcategoryOptions.length > 0}>
-                  {subcategoryOptions.length > 0 ? 'Select' : 'None'}
+                  {''}
                 </option>
 
                 {subcategoryOptions.map((item) => (
@@ -487,15 +487,13 @@ function CurrentMonthPage() {
             </label>
 
             <label>
-              <span>Medium</span>
+              <span>Account</span>
               <select
-                aria-label="Transaction medium"
+                aria-label="Transaction account"
                 value={medium}
                 onChange={(event) => setMedium(event.target.value)}
               >
-                <option value="" disabled>
-                  Select
-                </option>
+                <option value="" disabled></option>
 
                 {mediumOptions.map((item) => (
                   <option key={item} value={item}>
@@ -512,9 +510,7 @@ function CurrentMonthPage() {
                 value={type}
                 onChange={(event) => setType(event.target.value)}
               >
-                <option value="" disabled>
-                  Select
-                </option>
+                <option value="" disabled></option>
 
                 {typeOptions.map((item) => (
                   <option key={item} value={item}>
@@ -551,18 +547,18 @@ function CurrentMonthPage() {
                 aria-label="Transaction comments"
                 className="comments-input"
                 type="text"
-                placeholder="Add comments"
                 value={comments}
                 onChange={(event) => setComments(event.target.value)}
               />
             </label>
 
             <button
+              aria-label="Add transaction"
               className="add-transaction"
               type="button"
               onClick={addTransaction}
             >
-              + Add Transaction
+              +
             </button>
           </div>
         ) : null}
@@ -589,9 +585,7 @@ function CurrentMonthPage() {
                 value={transferFrom}
                 onChange={(event) => setTransferFrom(event.target.value)}
               >
-                <option value="" disabled>
-                  Select
-                </option>
+                <option value="" disabled></option>
 
                 {transferAccountOptions.map((item) => (
                   <option key={item} value={item}>
@@ -608,9 +602,7 @@ function CurrentMonthPage() {
                 value={transferTo}
                 onChange={(event) => setTransferTo(event.target.value)}
               >
-                <option value="" disabled>
-                  Select
-                </option>
+                <option value="" disabled></option>
 
                 {transferAccountOptions.map((item) => (
                   <option key={item} value={item}>
@@ -650,18 +642,18 @@ function CurrentMonthPage() {
                 aria-label="Transfer comments"
                 className="comments-input"
                 type="text"
-                placeholder="Add comments"
                 value={transferComments}
                 onChange={(event) => setTransferComments(event.target.value)}
               />
             </label>
 
             <button
+              aria-label="Add transfer"
               className="add-transaction"
               type="button"
               onClick={addTransfer}
             >
-              + Add Transfer
+              +
             </button>
           </div>
         ) : null}
@@ -718,9 +710,7 @@ function CurrentMonthPage() {
                       setCreditPurchaseAccountId(event.target.value)
                     }
                   >
-                    <option value="" disabled>
-                      Select
-                    </option>
+                    <option value="" disabled></option>
 
                     {creditAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
@@ -743,7 +733,7 @@ function CurrentMonthPage() {
                       value=""
                       disabled={subcategoryOptions.length > 0}
                     >
-                      {subcategoryOptions.length > 0 ? 'Select' : 'None'}
+                      {''}
                     </option>
 
                     {subcategoryOptions.map((item) => (
@@ -787,7 +777,6 @@ function CurrentMonthPage() {
                     aria-label="Credit purchase comments"
                     className="comments-input"
                     type="text"
-                    placeholder="Add comments"
                     value={creditPurchaseComments}
                     onChange={(event) =>
                       setCreditPurchaseComments(event.target.value)
@@ -796,11 +785,12 @@ function CurrentMonthPage() {
                 </label>
 
                 <button
+                  aria-label="Add credit purchase"
                   className="add-transaction"
                   type="button"
                   onClick={addCreditPurchase}
                 >
-                  Add Credit Purchase
+                  +
                 </button>
               </div>
             ) : null}
@@ -831,9 +821,7 @@ function CurrentMonthPage() {
                       setCreditPaymentSourceId(event.target.value)
                     }
                   >
-                    <option value="" disabled>
-                      Select
-                    </option>
+                    <option value="" disabled></option>
 
                     {cashTransactionAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
@@ -852,9 +840,7 @@ function CurrentMonthPage() {
                       setCreditPaymentAccountId(event.target.value)
                     }
                   >
-                    <option value="" disabled>
-                      Select
-                    </option>
+                    <option value="" disabled></option>
 
                     {creditAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
@@ -897,7 +883,6 @@ function CurrentMonthPage() {
                     aria-label="Credit payment comments"
                     className="comments-input"
                     type="text"
-                    placeholder="Add comments"
                     value={creditPaymentComments}
                     onChange={(event) =>
                       setCreditPaymentComments(event.target.value)
@@ -906,11 +891,12 @@ function CurrentMonthPage() {
                 </label>
 
                 <button
+                  aria-label="Add credit payment"
                   className="add-transaction"
                   type="button"
                   onClick={addCreditPayment}
                 >
-                  Add Credit Payment
+                  +
                 </button>
               </div>
             ) : null}
@@ -925,9 +911,9 @@ function CurrentMonthPage() {
               <th>Date</th>
               <th>Category</th>
               <th>Description</th>
-              <th>Medium</th>
+              <th>Account</th>
               <th>Type</th>
-              <th>Amount</th>
+              <th>$</th>
               <th>Comments</th>
               <th></th>
             </tr>
@@ -944,13 +930,13 @@ function CurrentMonthPage() {
                   <td data-label="Description">
                     {getLedgerSubcategory(transaction)}
                   </td>
-                  <td data-label="Medium">{getLedgerMedium(transaction)}</td>
+                  <td data-label="Account">{getLedgerMedium(transaction)}</td>
                   <td data-label="Type">{transaction.type}</td>
                   <td
                     className={`ledger-amount ${getTransactionAmountClass(
                       transaction,
                     )}`}
-                    data-label="Amount"
+                    data-label="$"
                   >
                     ${formatLedgerMoney(transaction.amountCents)}
                   </td>
