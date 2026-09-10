@@ -1261,105 +1261,143 @@ select {
 }
 
 .system-page {
-  min-width: 1450px;
-  padding: 8px 8px 72px;
+  padding: 22px 24px 88px;
 }
 
-.system-table {
-  border-collapse: separate;
-  border-spacing: 5px 0;
-  font-size: 14px;
+.system-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 42px;
+  margin-bottom: 24px;
 }
 
-.system-table th {
-  padding: 0 5px 6px;
-  text-align: left;
-  font-weight: 700;
-  white-space: nowrap;
+.system-stat {
+  display: grid;
+  gap: 5px;
 }
 
-.system-table td {
-  padding: 2px 0;
-  vertical-align: middle;
+.system-stat span {
+  color: #666666;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.system-entry-row input,
-.system-entry-row select {
-  height: 32px;
-  border: none;
+.system-stat strong {
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.system-entry-section {
+  margin-bottom: 22px;
+}
+
+.system-option-entry {
+  display: grid;
+  grid-template-columns:
+    minmax(118px, 150px) 104px 82px 104px 104px 118px
+    auto;
+  gap: 7px;
+  margin-top: 8px;
+  max-width: 820px;
+  align-items: end;
+}
+
+.system-option-entry label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.system-option-entry label > span {
+  color: #666666;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.system-option-entry input,
+.system-option-entry select {
+  width: 100%;
+  height: 30px;
+  border: 1px solid #e5e5e5;
   outline: none;
-  border-radius: 7px;
-  background: linear-gradient(
-    135deg,
-    #eeeeee 0%,
-    #f7f7f7 48%,
-    #ffffff 100%
-  );
-  padding: 0 10px;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 9px;
   color: #111111;
   font: inherit;
 }
 
-.system-entry-row input:focus,
-.system-entry-row select:focus {
-  background: #f2f2f2;
+.system-option-entry input:focus,
+.system-option-entry select:focus {
+  border-color: #111111;
 }
 
-.system-entry-row input[type='checkbox'] {
-  width: 18px;
-  padding: 0;
+.system-option-entry button {
+  height: 30px;
+  min-width: 30px;
+  border: none;
+  border-radius: 6px;
+  background: #111111;
+  padding: 0 11px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
 }
 
-.system-entry-row td:nth-child(1) input {
-  width: 125px;
+.system-option-entry button:hover {
+  background: #333333;
 }
 
-.system-entry-row td:nth-child(2) select,
-.system-entry-row td:nth-child(5) select,
-.system-entry-row td:nth-child(7) select {
-  width: 74px;
+.system-ledger-section {
+  overflow-x: auto;
 }
 
-.system-entry-row td:nth-child(3) input,
-.system-entry-row td:nth-child(6) input {
-  width: 72px;
+.system-ledger-table {
+  width: max-content;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 13px;
 }
 
-.system-entry-row td:nth-child(4) input {
-  width: 82px;
-}
-
-.system-entry-row td:nth-child(8) select {
-  width: 110px;
-}
-
-.system-entry-row td:nth-child(9) input,
-.system-entry-row td:nth-child(10) input {
-  width: 140px;
-}
-
-.system-entry-row td:nth-child(14) input {
-  width: 260px;
-}
-
-.system-trade-row td {
-  padding: 7px 10px;
-  border-bottom: 1px solid #eeeeee;
+.system-ledger-table th {
+  padding: 0 10px 6px;
+  border-bottom: 1px solid #dddddd;
+  color: #666666;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.add-trade {
-  margin-top: 10px;
-  border: none;
-  border-radius: 7px;
-  background: #eeeeee;
-  padding: 8px 14px;
-  color: #111111;
-  cursor: pointer;
+.system-ledger-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eeeeee;
+  vertical-align: top;
+  white-space: nowrap;
 }
 
-.add-trade:hover {
-  background: #e4e4e4;
+.system-ledger-table th:nth-child(1),
+.system-ledger-table td:nth-child(1),
+.system-ledger-table th:nth-child(4),
+.system-ledger-table td:nth-child(4),
+.system-ledger-table th:nth-child(8),
+.system-ledger-table td:nth-child(8) {
+  text-align: center;
+}
+
+.system-ledger-table th:nth-child(6),
+.system-ledger-table td:nth-child(6),
+.system-ledger-table th:nth-child(7),
+.system-ledger-table td:nth-child(7),
+.system-ledger-table th:nth-child(9),
+.system-ledger-table td:nth-child(9) {
+  text-align: right;
+}
+
+.system-empty {
+  color: #777777;
 }
 
 .totals-page {

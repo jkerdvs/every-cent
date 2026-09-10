@@ -1,55 +1,109 @@
-import { useEffect, useState } from 'react'
-import { loadBalanceAccounts } from '../data/balanceSheet'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  getBalanceSections,
+  loadBalanceAccounts,
+} from '../data/balanceSheet'
+import { loadCurrentMonthTransactions } from '../data/currentMonth'
 import {
   loadInvestmentAccountConfigs,
   sortInvestmentAccountConfigs,
 } from '../data/ownership'
+import {
+  formatSystemMoney,
+  formatSystemMoneyInput,
+  getOptionsCashAdjustmentForAccountFromTrades,
+  loadOptionTrades,
+  saveOptionTrades,
+} from '../data/system'
+import type { OptionTrade, OptionType } from '../data/system'
+import type { BalanceAccount } from '../data/balanceSheet'
 
-type SystemTrade = {
-  id: number
-  accountId?: string
-  accountName?: string
-  week: string
-  day: string
-  dataNumber: string
-  ticker: string
-  callPut: string
-  tradePercent: string
-  winLoss: string
-  riskRespected: string
-  hourlyScheme: string
-  confirmation: string
-  smallSize: boolean
-  slMarked: boolean
-  tightSpread: boolean
-  takeaway: string
-}
+type EntryMode = OptionType | null
 
-const SYSTEM_STORAGE_KEY = 'every-cent-system-trades'
-
-const emptyTrade: Omit<SystemTrade, 'id'> = {
+const emptyForm = {
   accountId: '',
-  accountName: '',
-  week: '',
-  day: '',
-  dataNumber: '',
+  date: '',
   ticker: '',
-  callPut: '',
-  tradePercent: '',
-  winLoss: '',
-  riskRespected: '',
-  hourlyScheme: '',
-  confirmation: '',
-  smallSize: false,
-  slMarked: false,
-  tightSpread: false,
-  takeaway: '',
+  expiration: '',
+  strikeDigits: '',
+  costBasisDigits: '',
 }
 
-const days = ['M', 'T', 'W', 'Th', 'F']
-const callPutOptions = ['Call', 'Put']
-const winLossOptions = ['Win', 'Loss']
-const riskOptions = ['Yes', 'No', 'N/A']
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <path
+        d="M3 6h18"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M8 6V4h8v2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M6 6l1 15h10l1-15"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M10 11v6M14 11v6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  )
+}
+
+function parseDateInput(value: string) {
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+
+  if (!match) return null
+
+  const month = Number(match[1])
+  const day = Number(match[2])
+  const year = Number(match[3])
+
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(year) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null
+  }
+
+  return year * 10000 + month * 100 + day
+}
+
+function formatSystemDate(value: number) {
+  const year = Math.floor(value / 10000)
+  const month = Math.floor((value % 10000) / 100)
+  const day = value % 100
+
+  return `${String(month).padStart(2, '0')}/${String(day).padStart(
+    2,
+    '0',
+  )}/${year}`
+}
 
 function getOptionsTradingAccounts() {
   const balanceAccounts = loadBalanceAccounts()
@@ -65,310 +119,389 @@ function getOptionsTradingAccounts() {
     (config) => accountById.get(config.accountId)?.name ?? '',
   )
     .map((config) => accountById.get(config.accountId))
-    .filter((account): account is NonNullable<typeof account> =>
-      Boolean(account),
-    )
-}
-
-function loadTrades() {
-  const savedTrades = localStorage.getItem(SYSTEM_STORAGE_KEY)
-
-  if (!savedTrades) return []
-
-  try {
-    return JSON.parse(savedTrades) as SystemTrade[]
-  } catch {
-    return []
-  }
+    .filter((account): account is BalanceAccount => Boolean(account))
 }
 
 function SystemPage() {
-  const [trades, setTrades] = useState<SystemTrade[]>(loadTrades)
-  const [entry, setEntry] = useState(emptyTrade)
-  const optionsTradingAccounts = getOptionsTradingAccounts()
+  const [trades, setTrades] = useState<OptionTrade[]>(loadOptionTrades)
+  const [entryMode, setEntryMode] = useState<EntryMode>(null)
+  const [form, setForm] = useState(emptyForm)
+  const [validationMessage, setValidationMessage] = useState('')
+  const optionsTradingAccounts = useMemo(() => getOptionsTradingAccounts(), [])
+  const accountById = useMemo(() => {
+    return new Map(
+      optionsTradingAccounts.map((account) => [account.id, account]),
+    )
+  }, [optionsTradingAccounts])
+  const openTrades = useMemo(
+    () => trades.filter((trade) => trade.status === 'open'),
+    [trades],
+  )
+  const openCostBasisCents = useMemo(() => {
+    return openTrades.reduce(
+      (total, trade) => total + trade.costBasisCents,
+      0,
+    )
+  }, [openTrades])
+  const realizedProfitLossCents = useMemo(() => {
+    return trades.reduce(
+      (total, trade) => total + (trade.realizedProfitLossCents ?? 0),
+      0,
+    )
+  }, [trades])
+  const tradingAccountBalanceCents = useMemo(() => {
+    const eligibleAccountIds = new Set(
+      optionsTradingAccounts.map((account) => account.id),
+    )
+
+    return getBalanceSections(
+      loadBalanceAccounts(),
+      loadCurrentMonthTransactions(),
+      (accountId) =>
+        getOptionsCashAdjustmentForAccountFromTrades(accountId, trades),
+    ).reduce((total, section) => {
+      return (
+        total +
+        section.accounts
+          .filter((account) => eligibleAccountIds.has(account.id))
+          .reduce(
+            (sectionTotal, account) =>
+              sectionTotal + account.balanceCents,
+            0,
+          )
+      )
+    }, 0)
+  }, [optionsTradingAccounts, trades])
+  const sortedTrades = useMemo(() => {
+    return [...trades].sort((a, b) => b.id - a.id)
+  }, [trades])
+  const strikeCents = form.strikeDigits ? Number(form.strikeDigits) : 0
+  const costBasisCents = form.costBasisDigits
+    ? Number(form.costBasisDigits)
+    : 0
+  const realizedClass =
+    realizedProfitLossCents > 0
+      ? 'positive'
+      : realizedProfitLossCents < 0
+        ? 'negative'
+        : 'neutral'
 
   useEffect(() => {
-    localStorage.setItem(SYSTEM_STORAGE_KEY, JSON.stringify(trades))
+    saveOptionTrades(trades)
   }, [trades])
 
-  function updateEntry<Value extends keyof typeof emptyTrade>(
-    field: Value,
-    value: (typeof emptyTrade)[Value],
+  function updateMoneyDigits(
+    value: string,
+    field: 'strikeDigits' | 'costBasisDigits',
   ) {
-    setEntry((currentEntry) => ({
-      ...currentEntry,
-      [field]: value,
+    setForm((currentForm) => ({
+      ...currentForm,
+      [field]: value.replace(/\D/g, ''),
     }))
   }
 
-  function addTrade() {
-    const cleanTicker = entry.ticker.trim().toUpperCase()
-    const selectedAccount = optionsTradingAccounts.find(
-      (account) => account.id === entry.accountId,
-    )
+  function addOptionTrade() {
+    if (!entryMode) return
 
-    if (!cleanTicker) return
+    const account = accountById.get(form.accountId)
+    const date = parseDateInput(form.date)
+    const expiration = parseDateInput(form.expiration)
+    const ticker = form.ticker.trim().toUpperCase()
+
+    if (
+      !account ||
+      date === null ||
+      expiration === null ||
+      !ticker ||
+      strikeCents <= 0 ||
+      costBasisCents <= 0
+    ) {
+      setValidationMessage(
+        'Enter account, dates as MM/DD/YYYY, ticker, strike, and cost basis.',
+      )
+      return
+    }
 
     setTrades((currentTrades) => [
       {
-        ...entry,
         id: Date.now(),
-        accountName: selectedAccount?.name ?? entry.accountName,
-        ticker: cleanTicker,
+        accountId: account.id,
+        accountName: account.name,
+        date,
+        ticker,
+        optionType: entryMode,
+        expiration,
+        strikeCents,
+        costBasisCents,
+        status: 'open',
       },
       ...currentTrades,
     ])
-    setEntry(emptyTrade)
+    setForm(emptyForm)
+    setValidationMessage('')
+  }
+
+  function deleteTrade(trade: OptionTrade) {
+    const confirmed = window.confirm(
+      `Delete ${trade.ticker} ${trade.optionType === 'call' ? 'call' : 'put'}?\n\nThis options trade will be permanently removed.`,
+    )
+
+    if (!confirmed) return
+
+    setTrades((currentTrades) =>
+      currentTrades.filter((currentTrade) => currentTrade.id !== trade.id),
+    )
   }
 
   return (
     <main className="system-page">
-      <table className="system-table">
-        <thead>
-          <tr>
-            <th>Account</th>
-            <th>Week</th>
-            <th>Day</th>
-            <th>Data #</th>
-            <th>Ticker</th>
-            <th>C/P</th>
-            <th>Trade %</th>
-            <th>W/L</th>
-            <th>Risk Respected</th>
-            <th>Hourly Scheme</th>
-            <th>Confirmation</th>
-            <th>Small Size</th>
-            <th>SL Marked</th>
-            <th>Tight Spread</th>
-            <th>Takeaway</th>
-          </tr>
-        </thead>
+      <section className="system-stats" aria-label="Options statistics">
+        <div className="system-stat">
+          <span>Open Cost Basis</span>
+          <strong>{formatSystemMoney(openCostBasisCents)}</strong>
+        </div>
 
-        <tbody>
-          <tr className="system-entry-row">
-            <td>
+        <div className="system-stat">
+          <span>Open Positions</span>
+          <strong>{openTrades.length}</strong>
+        </div>
+
+        <div className="system-stat">
+          <span>Realized P/L</span>
+          <strong className={realizedClass}>
+            {formatSystemMoney(realizedProfitLossCents)}
+          </strong>
+        </div>
+
+        <div className="system-stat">
+          <span>Trading Account Balance</span>
+          <strong>{formatSystemMoney(tradingAccountBalanceCents)}</strong>
+        </div>
+      </section>
+
+      <section className="system-entry-section" aria-label="Add option">
+        <div className="ownership-action-row">
+          <button
+            aria-expanded={entryMode === 'call'}
+            className={`ownership-entry-toggle ${
+              entryMode === 'call' ? 'active' : ''
+            }`}
+            type="button"
+            onClick={() => {
+              setEntryMode((currentMode) =>
+                currentMode === 'call' ? null : 'call',
+              )
+              setValidationMessage('')
+            }}
+          >
+            Call
+          </button>
+
+          <button
+            aria-expanded={entryMode === 'put'}
+            className={`ownership-entry-toggle ${
+              entryMode === 'put' ? 'active' : ''
+            }`}
+            type="button"
+            onClick={() => {
+              setEntryMode((currentMode) =>
+                currentMode === 'put' ? null : 'put',
+              )
+              setValidationMessage('')
+            }}
+          >
+            Put
+          </button>
+        </div>
+
+        {entryMode ? (
+          <div className="system-option-entry">
+            <label>
+              <span>Account</span>
               <select
-                aria-label="Options trading account"
-                value={entry.accountId}
-                onChange={(event) => {
-                  const account = optionsTradingAccounts.find(
-                    (item) => item.id === event.target.value,
-                  )
-
-                  setEntry((currentEntry) => ({
-                    ...currentEntry,
-                    accountId: account?.id ?? '',
-                    accountName: account?.name ?? '',
+                aria-label={`${entryMode} options account`}
+                value={form.accountId}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    accountId: event.target.value,
                   }))
-                }}
+                }
               >
-                <option value="">Account</option>
+                <option value="" disabled></option>
+
                 {optionsTradingAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.name}
                   </option>
                 ))}
               </select>
-            </td>
-            <td>
-              <input
-                aria-label="Week"
-                type="text"
-                value={entry.week}
-                onChange={(event) =>
-                  updateEntry('week', event.target.value)
-                }
-              />
-            </td>
-            <td>
-              <select
-                aria-label="Day"
-                value={entry.day}
-                onChange={(event) =>
-                  updateEntry('day', event.target.value)
-                }
-              >
-                <option value="">Day</option>
-                {days.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td>
-              <input
-                aria-label="Data number"
-                type="number"
-                value={entry.dataNumber}
-                onChange={(event) =>
-                  updateEntry('dataNumber', event.target.value)
-                }
-              />
-            </td>
-            <td>
-              <input
-                aria-label="Ticker"
-                type="text"
-                value={entry.ticker}
-                onChange={(event) =>
-                  updateEntry(
-                    'ticker',
-                    event.target.value.toUpperCase(),
-                  )
-                }
-              />
-            </td>
-            <td>
-              <select
-                aria-label="Call or put"
-                value={entry.callPut}
-                onChange={(event) =>
-                  updateEntry('callPut', event.target.value)
-                }
-              >
-                <option value="">C/P</option>
-                {callPutOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td>
-              <input
-                aria-label="Trade percent"
-                step="any"
-                type="number"
-                value={entry.tradePercent}
-                onChange={(event) =>
-                  updateEntry('tradePercent', event.target.value)
-                }
-              />
-            </td>
-            <td>
-              <select
-                aria-label="Win or loss"
-                value={entry.winLoss}
-                onChange={(event) =>
-                  updateEntry('winLoss', event.target.value)
-                }
-              >
-                <option value="">W/L</option>
-                {winLossOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td>
-              <select
-                aria-label="Risk respected"
-                value={entry.riskRespected}
-                onChange={(event) =>
-                  updateEntry('riskRespected', event.target.value)
-                }
-              >
-                <option value="">Risk</option>
-                {riskOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td>
-              <input
-                aria-label="Hourly scheme"
-                type="text"
-                value={entry.hourlyScheme}
-                onChange={(event) =>
-                  updateEntry('hourlyScheme', event.target.value)
-                }
-              />
-            </td>
-            <td>
-              <input
-                aria-label="Confirmation"
-                type="text"
-                value={entry.confirmation}
-                onChange={(event) =>
-                  updateEntry('confirmation', event.target.value)
-                }
-              />
-            </td>
-            <td>
-              <input
-                aria-label="Small size"
-                checked={entry.smallSize}
-                type="checkbox"
-                onChange={(event) =>
-                  updateEntry('smallSize', event.target.checked)
-                }
-              />
-            </td>
-            <td>
-              <input
-                aria-label="SL marked"
-                checked={entry.slMarked}
-                type="checkbox"
-                onChange={(event) =>
-                  updateEntry('slMarked', event.target.checked)
-                }
-              />
-            </td>
-            <td>
-              <input
-                aria-label="Tight spread"
-                checked={entry.tightSpread}
-                type="checkbox"
-                onChange={(event) =>
-                  updateEntry('tightSpread', event.target.checked)
-                }
-              />
-            </td>
-            <td>
-              <input
-                aria-label="Takeaway"
-                type="text"
-                value={entry.takeaway}
-                onChange={(event) =>
-                  updateEntry('takeaway', event.target.value)
-                }
-              />
-            </td>
-          </tr>
+            </label>
 
-          {trades.map((trade) => (
-            <tr className="system-trade-row" key={trade.id}>
-              <td>{trade.accountName ?? ''}</td>
-              <td>{trade.week}</td>
-              <td>{trade.day}</td>
-              <td>{trade.dataNumber}</td>
-              <td>{trade.ticker}</td>
-              <td>{trade.callPut}</td>
-              <td>
-                {trade.tradePercent
-                  ? `${trade.tradePercent}%`
-                  : ''}
-              </td>
-              <td>{trade.winLoss}</td>
-              <td>{trade.riskRespected}</td>
-              <td>{trade.hourlyScheme}</td>
-              <td>{trade.confirmation}</td>
-              <td>{trade.smallSize ? 'Yes' : ''}</td>
-              <td>{trade.slMarked ? 'Yes' : ''}</td>
-              <td>{trade.tightSpread ? 'Yes' : ''}</td>
-              <td>{trade.takeaway}</td>
+            <label>
+              <span>Date</span>
+              <input
+                aria-label={`${entryMode} trade date`}
+                placeholder="MM/DD/YYYY"
+                type="text"
+                value={form.date}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    date: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              <span>Ticker</span>
+              <input
+                aria-label={`${entryMode} ticker`}
+                type="text"
+                value={form.ticker}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    ticker: event.target.value.toUpperCase(),
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              <span>Expiration</span>
+              <input
+                aria-label={`${entryMode} expiration`}
+                placeholder="MM/DD/YYYY"
+                type="text"
+                value={form.expiration}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    expiration: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              <span>Strike</span>
+              <div className="investment-amount-field">
+                <span>$</span>
+                <input
+                  aria-label={`${entryMode} strike`}
+                  inputMode="numeric"
+                  type="text"
+                  value={formatSystemMoneyInput(strikeCents)}
+                  onChange={(event) =>
+                    updateMoneyDigits(event.target.value, 'strikeDigits')
+                  }
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Cost Basis</span>
+              <div className="investment-amount-field">
+                <span>$</span>
+                <input
+                  aria-label={`${entryMode} cost basis`}
+                  inputMode="numeric"
+                  type="text"
+                  value={formatSystemMoneyInput(costBasisCents)}
+                  onChange={(event) =>
+                    updateMoneyDigits(
+                      event.target.value,
+                      'costBasisDigits',
+                    )
+                  }
+                />
+              </div>
+            </label>
+
+            <button
+              aria-label={`Add ${entryMode}`}
+              type="button"
+              onClick={addOptionTrade}
+            >
+              +
+            </button>
+          </div>
+        ) : null}
+
+        {validationMessage ? (
+          <p className="ownership-validation">{validationMessage}</p>
+        ) : null}
+      </section>
+
+      <section className="system-ledger-section" aria-label="Options ledger">
+        <table className="system-ledger-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Account</th>
+              <th>Ticker</th>
+              <th>C/P</th>
+              <th>Expiration</th>
+              <th>Strike</th>
+              <th>Cost Basis</th>
+              <th>Status</th>
+              <th>Realized P/L</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
 
-      <button className="add-trade" type="button" onClick={addTrade}>
-        Add Trade
-      </button>
+          <tbody>
+            {sortedTrades.map((trade) => (
+              <tr key={trade.id}>
+                <td>{formatSystemDate(trade.date)}</td>
+                <td>{trade.accountName}</td>
+                <td>{trade.ticker}</td>
+                <td>{trade.optionType === 'call' ? 'C' : 'P'}</td>
+                <td>{formatSystemDate(trade.expiration)}</td>
+                <td>{formatSystemMoney(trade.strikeCents)}</td>
+                <td>{formatSystemMoney(trade.costBasisCents)}</td>
+                <td>{trade.status === 'open' ? 'Open' : 'Closed'}</td>
+                <td
+                  className={
+                    trade.realizedProfitLossCents &&
+                    trade.realizedProfitLossCents < 0
+                      ? 'negative'
+                      : trade.realizedProfitLossCents &&
+                          trade.realizedProfitLossCents > 0
+                        ? 'positive'
+                        : 'neutral'
+                  }
+                >
+                  {trade.status === 'closed' &&
+                  typeof trade.realizedProfitLossCents === 'number'
+                    ? formatSystemMoney(trade.realizedProfitLossCents)
+                    : '—'}
+                </td>
+                <td className="transaction-action-cell">
+                  <button
+                    aria-label={`Delete ${trade.ticker} option trade`}
+                    className="delete-transaction"
+                    type="button"
+                    onClick={() => deleteTrade(trade)}
+                  >
+                    <TrashIcon />
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {sortedTrades.length === 0 ? (
+              <tr>
+                <td className="system-empty" colSpan={10}>
+                  No options positions.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </section>
     </main>
   )
 }

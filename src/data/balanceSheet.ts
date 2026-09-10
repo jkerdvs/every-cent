@@ -8,6 +8,7 @@ import {
   getInvestmentCashAdjustmentForAccount,
   INVESTMENT_ACCOUNTS_STORAGE_KEY,
 } from './ownership'
+import { getOptionsCashAdjustmentForAccount } from './system'
 
 export type BalanceCategory = string
 export type AccountScope = 'transaction' | 'investment'
@@ -352,6 +353,7 @@ export function getAdjustmentForAccount(
 export function getBalanceSections(
   accounts: BalanceAccount[],
   transactions: CurrentMonthEntry[],
+  getOptionsAdjustment = getOptionsCashAdjustmentForAccount,
 ) {
   const resetAdjustments = loadBalanceResetAdjustments()
   const accountCategories = loadBalanceCategories()
@@ -373,11 +375,14 @@ export function getBalanceSections(
         const adjustmentCents = getAdjustmentForAccount(account, transactions)
         const investmentAdjustmentCents =
           getInvestmentCashAdjustmentForAccount(account.id)
+        const optionsAdjustmentCents =
+          getOptionsAdjustment(account.id)
         const resetAdjustmentCents = resetAdjustments.get(account.id) ?? 0
         const balanceCents =
           account.baseBalanceCents +
           adjustmentCents +
           investmentAdjustmentCents +
+          optionsAdjustmentCents +
           resetAdjustmentCents
 
         return {
@@ -385,6 +390,7 @@ export function getBalanceSections(
           adjustmentCents:
             adjustmentCents +
             investmentAdjustmentCents +
+            optionsAdjustmentCents +
             resetAdjustmentCents,
           balanceCents,
           displayBalance: formatAccountBalance(balanceCents),
