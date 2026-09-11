@@ -32,6 +32,7 @@ export type InvestmentTransaction = {
   netGainLossCents?: number
   costBasisRemovedCents?: number
   affectsBalance?: boolean
+  affectsPosition?: boolean
 }
 
 export type InvestmentPosition = {
@@ -248,6 +249,7 @@ export function loadInvestmentTransactions() {
             ? Math.round(transaction.costBasisRemovedCents)
             : undefined
         const affectsBalance = transaction.affectsBalance !== false
+        const affectsPosition = transaction.affectsPosition !== false
 
         if (
           !type ||
@@ -285,6 +287,7 @@ export function loadInvestmentTransactions() {
           netGainLossCents,
           costBasisRemovedCents,
           affectsBalance,
+          affectsPosition,
         }
       })
       .filter((transaction): transaction is InvestmentTransaction =>
@@ -406,6 +409,8 @@ export function deriveInvestmentPositions(
   })
 
   transactions.forEach((transaction) => {
+    if (transaction.affectsPosition === false) return
+
     const key = getPositionKey(transaction.accountId, transaction.ticker)
     const currentPosition = positionsByKey.get(key) ?? {
       accountId: transaction.accountId,
@@ -482,17 +487,49 @@ export function getAmountInvestedByAccount(
 }
 
 export function getInvestmentCashAdjustmentForAccount(accountId: string) {
-  return loadInvestmentTransactions()
-    .filter(
-      (transaction) =>
-        transaction.accountId === accountId &&
-        transaction.affectsBalance !== false,
-    )
-    .reduce((total, transaction) => {
-      if (transaction.type === 'buy') return total - transaction.amountCents
+  return (
+    getInvestmentStartingCashForAccount(accountId) +
+    loadInvestmentTransactions()
+      .filter(
+        (transaction) =>
+          transaction.accountId === accountId &&
+          transaction.affectsBalance !== false,
+      )
+      .reduce((total, transaction) => {
+        if (transaction.type === 'buy') {
+          return total - transaction.amountCents
+        }
 
-      return total + transaction.amountCents
-    }, 0)
+        return total + transaction.amountCents
+      }, 0)
+  )
+}
+
+export function getInvestmentStartingCashForAccount(accountId: string) {
+  const savedConfigs = localStorage.getItem(INVESTMENT_ACCOUNTS_STORAGE_KEY)
+
+  if (!savedConfigs) return 0
+
+  try {
+    const parsedConfigs = JSON.parse(savedConfigs)
+
+    if (!Array.isArray(parsedConfigs)) return 0
+
+    return parsedConfigs
+      .filter((config) => config.accountId === accountId)
+      .reduce((total, config) => {
+        if (
+          typeof config.startingCashCents !== 'number' ||
+          !Number.isFinite(config.startingCashCents)
+        ) {
+          return total
+        }
+
+        return total + Math.round(config.startingCashCents)
+      }, 0)
+  } catch {
+    return 0
+  }
 }
 
 export function validateInvestmentTransactions(
@@ -519,6 +556,8 @@ export function validateInvestmentTransactions(
   })
 
   for (const transaction of transactions) {
+    if (transaction.affectsPosition === false) continue
+
     const key = getPositionKey(transaction.accountId, transaction.ticker)
     const currentPosition = positionsByKey.get(key) ?? {
       accountId: transaction.accountId,

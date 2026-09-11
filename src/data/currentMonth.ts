@@ -6,7 +6,8 @@ export type TransactionKind =
 
 type BaseTransaction = {
   id: number
-  date: number
+  transactionNo: number
+  date?: number
   amountCents: number
   comments: string
 }
@@ -242,10 +243,53 @@ export function loadCurrentMonthTransactions() {
   if (!savedTransactions) return []
 
   try {
-    return JSON.parse(savedTransactions) as CurrentMonthEntry[]
+    const parsedTransactions = JSON.parse(savedTransactions)
+
+    if (!Array.isArray(parsedTransactions)) return []
+
+    return renumberCurrentMonthTransactions(
+      parsedTransactions
+        .map((transaction): CurrentMonthEntry | null => {
+          if (
+            typeof transaction !== 'object' ||
+            transaction === null ||
+            typeof transaction.id !== 'number' ||
+            typeof transaction.amountCents !== 'number' ||
+            typeof transaction.comments !== 'string'
+          ) {
+            return null
+          }
+
+          return {
+            ...transaction,
+            transactionNo:
+              typeof transaction.transactionNo === 'number' &&
+              Number.isFinite(transaction.transactionNo)
+                ? Math.trunc(transaction.transactionNo)
+                : 0,
+            date:
+              typeof transaction.date === 'number' &&
+              Number.isFinite(transaction.date)
+                ? transaction.date
+                : undefined,
+          } as CurrentMonthEntry
+        })
+        .filter((transaction): transaction is CurrentMonthEntry =>
+          Boolean(transaction),
+        ),
+    )
   } catch {
     return []
   }
+}
+
+export function renumberCurrentMonthTransactions(
+  transactions: CurrentMonthEntry[],
+) {
+  return transactions.map((transaction, index) => ({
+    ...transaction,
+    transactionNo: index + 1,
+  }))
 }
 
 export function saveCurrentMonthTransactions(transactions: CurrentMonthEntry[]) {

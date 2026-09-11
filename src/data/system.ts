@@ -3,9 +3,9 @@ export type OptionStatus = 'open' | 'closed'
 
 export type OptionTrade = {
   id: number
+  tradeNo: number
   accountId: string
   accountName: string
-  date: number
   ticker: string
   optionType: OptionType
   expiration: number
@@ -19,6 +19,7 @@ export type OptionTrade = {
 
 type StoredOptionTrade = Partial<OptionTrade> & {
   callPut?: string
+  date?: number
 }
 
 export const OPTIONS_TRADES_STORAGE_KEY =
@@ -53,7 +54,7 @@ export function loadOptionTrades() {
 
     if (!Array.isArray(parsedTrades)) return []
 
-    return parsedTrades
+    const normalizedTrades = parsedTrades
       .map((trade: StoredOptionTrade, index): OptionTrade | null => {
         const optionType =
           trade.optionType === 'call' ||
@@ -82,13 +83,18 @@ export function loadOptionTrades() {
           Number.isFinite(trade.strikeCents)
             ? Math.round(trade.strikeCents)
             : 0
+        const tradeNo =
+          typeof trade.tradeNo === 'number' &&
+          Number.isFinite(trade.tradeNo) &&
+          trade.tradeNo > 0
+            ? Math.trunc(trade.tradeNo)
+            : 0
 
         if (
           !optionType ||
           !ticker ||
           !trade.accountId ||
           !trade.accountName ||
-          typeof trade.date !== 'number' ||
           typeof trade.expiration !== 'number' ||
           costBasisCents <= 0 ||
           strikeCents <= 0
@@ -101,9 +107,9 @@ export function loadOptionTrades() {
             typeof trade.id === 'number' && Number.isFinite(trade.id)
               ? trade.id
               : Date.now() + index,
+          tradeNo,
           accountId: trade.accountId,
           accountName: trade.accountName,
-          date: trade.date,
           ticker,
           optionType,
           expiration: trade.expiration,
@@ -128,6 +134,37 @@ export function loadOptionTrades() {
         }
       })
       .filter((trade): trade is OptionTrade => Boolean(trade))
+
+    const existingTradeNumbers = new Set(
+      normalizedTrades
+        .map((trade) => trade.tradeNo)
+        .filter((tradeNo) => tradeNo > 0),
+    )
+    let nextTradeNo =
+      Math.max(0, ...Array.from(existingTradeNumbers.values())) + 1
+    const assignedTradeNumbers = new Set<number>()
+
+    return normalizedTrades
+      .sort((a, b) => a.id - b.id)
+      .map((trade) => {
+        if (
+          trade.tradeNo > 0 &&
+          !assignedTradeNumbers.has(trade.tradeNo)
+        ) {
+          assignedTradeNumbers.add(trade.tradeNo)
+
+          return trade
+        }
+
+        const tradeNo = nextTradeNo
+        assignedTradeNumbers.add(tradeNo)
+        nextTradeNo += 1
+
+        return {
+          ...trade,
+          tradeNo,
+        }
+      })
   } catch {
     return []
   }
@@ -152,7 +189,11 @@ export function getOptionsCashAdjustmentForAccountFromTrades(
     .filter((trade) => trade.accountId === accountId)
     .reduce((total, trade) => {
       if (trade.status === 'closed') {
-        return total + (trade.proceedsCents ?? 0) - trade.costBasisCents
+        const cashReturned =
+          trade.proceedsCents ??
+          trade.costBasisCents + (trade.realizedProfitLossCents ?? 0)
+
+        return total + cashReturned - trade.costBasisCents
       }
 
       return total - trade.costBasisCents

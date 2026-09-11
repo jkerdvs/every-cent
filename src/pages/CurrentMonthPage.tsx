@@ -11,14 +11,10 @@ import {
   loadTransactionCategories,
   loadTransactionSubcategories,
   loadTransactionTypes,
+  renumberCurrentMonthTransactions,
   saveCurrentMonthTransactions,
 } from '../data/currentMonth'
-import type {
-  CreditPaymentTransaction,
-  CreditPurchaseTransaction,
-  CurrentMonthEntry,
-  Transaction,
-} from '../data/currentMonth'
+import type { CurrentMonthEntry } from '../data/currentMonth'
 import {
   getCashTransactionAccounts,
   getCreditAccounts,
@@ -83,20 +79,17 @@ function CurrentMonthPage() {
   )
 
   const [entryMode, setEntryMode] = useState<EntryMode | null>(null)
-  const [date, setDate] = useState('')
   const [category, setCategory] = useState('')
   const [subcategory, setSubcategory] = useState('')
   const [medium, setMedium] = useState('')
   const [type, setType] = useState('')
   const [amountDigits, setAmountDigits] = useState('')
   const [comments, setComments] = useState('')
-  const [transferDate, setTransferDate] = useState('')
   const [transferFrom, setTransferFrom] = useState('')
   const [transferTo, setTransferTo] = useState('')
   const [transferAmountDigits, setTransferAmountDigits] = useState('')
   const [transferComments, setTransferComments] = useState('')
   const [creditMode, setCreditMode] = useState<CreditMode>('purchase')
-  const [creditPurchaseDate, setCreditPurchaseDate] = useState('')
   const [creditPurchaseAccountId, setCreditPurchaseAccountId] =
     useState('')
   const [creditPurchaseSubcategory, setCreditPurchaseSubcategory] =
@@ -104,7 +97,6 @@ function CurrentMonthPage() {
   const [creditPurchaseAmountDigits, setCreditPurchaseAmountDigits] =
     useState('')
   const [creditPurchaseComments, setCreditPurchaseComments] = useState('')
-  const [creditPaymentDate, setCreditPaymentDate] = useState('')
   const [creditPaymentSourceId, setCreditPaymentSourceId] = useState('')
   const [creditPaymentAccountId, setCreditPaymentAccountId] = useState('')
   const [creditPaymentAmountDigits, setCreditPaymentAmountDigits] =
@@ -116,7 +108,9 @@ function CurrentMonthPage() {
   }, [transactions])
 
   const sortedTransactions = useMemo(() => {
-    return [...transactions].sort((a, b) => b.date - a.date)
+    return [...transactions].sort(
+      (a, b) => b.transactionNo - a.transactionNo,
+    )
   }, [transactions])
   const accounts = useMemo(() => loadBalanceAccounts(), [])
   const accountById = useMemo(() => {
@@ -155,6 +149,7 @@ function CurrentMonthPage() {
       : realizedProfitLossCents < 0
         ? 'negative'
         : 'neutral'
+  const realizedProfitLossDisplayCents = Math.abs(realizedProfitLossCents)
 
   const amountCents = amountDigits ? Number(amountDigits) : 0
   const amountDisplay = formatLedgerMoney(amountCents)
@@ -202,7 +197,6 @@ function CurrentMonthPage() {
 
   function addTransaction() {
     if (
-      !date ||
       !category ||
       (subcategoryOptions.length > 0 && !subcategory) ||
       !medium ||
@@ -212,23 +206,20 @@ function CurrentMonthPage() {
       return
     }
 
-    const newTransaction: Transaction = {
-      id: Date.now(),
-      date: Number(date),
-      category,
-      subcategory,
-      medium,
-      type,
-      amountCents,
-      comments,
-    }
-
     setTransactions((currentTransactions) => [
       ...currentTransactions,
-      newTransaction,
+      {
+        id: Date.now(),
+        transactionNo: currentTransactions.length + 1,
+        category,
+        subcategory,
+        medium,
+        type,
+        amountCents,
+        comments,
+      },
     ])
 
-    setDate('')
     setCategory('')
     setSubcategory('')
     setMedium('')
@@ -239,7 +230,6 @@ function CurrentMonthPage() {
 
   function addTransfer() {
     if (
-      !transferDate ||
       !transferFrom ||
       !transferTo ||
       transferFrom === transferTo ||
@@ -256,7 +246,7 @@ function CurrentMonthPage() {
         id: Date.now(),
         kind: 'transfer',
         transferId,
-        date: Number(transferDate),
+        transactionNo: currentTransactions.length + 1,
         category: 'Transfer',
         subcategory: `${transferFrom} -> ${transferTo}`,
         medium: '',
@@ -268,7 +258,6 @@ function CurrentMonthPage() {
       },
     ])
 
-    setTransferDate('')
     setTransferFrom('')
     setTransferTo('')
     setTransferAmountDigits('')
@@ -279,7 +268,6 @@ function CurrentMonthPage() {
     const creditAccount = accountById.get(creditPurchaseAccountId)
 
     if (
-      !creditPurchaseDate ||
       !creditAccount ||
       (subcategoryOptions.length > 0 && !creditPurchaseSubcategory) ||
       creditPurchaseAmountCents <= 0 ||
@@ -288,25 +276,22 @@ function CurrentMonthPage() {
       return
     }
 
-    const newCreditPurchase: CreditPurchaseTransaction = {
-      id: Date.now(),
-      kind: 'creditPurchase',
-      date: Number(creditPurchaseDate),
-      category: 'Credit',
-      subcategory: creditPurchaseSubcategory,
-      medium: creditAccount.name,
-      type: 'Credit Purchase',
-      amountCents: creditPurchaseAmountCents,
-      comments: creditPurchaseComments,
-      creditAccountId: creditAccount.id,
-      creditAccountName: creditAccount.name,
-    }
-
     setTransactions((currentTransactions) => [
       ...currentTransactions,
-      newCreditPurchase,
+      {
+        id: Date.now(),
+        kind: 'creditPurchase',
+        transactionNo: currentTransactions.length + 1,
+        category: 'Credit',
+        subcategory: creditPurchaseSubcategory,
+        medium: creditAccount.name,
+        type: 'Credit Purchase',
+        amountCents: creditPurchaseAmountCents,
+        comments: creditPurchaseComments,
+        creditAccountId: creditAccount.id,
+        creditAccountName: creditAccount.name,
+      },
     ])
-    setCreditPurchaseDate('')
     setCreditPurchaseAccountId('')
     setCreditPurchaseSubcategory('')
     setCreditPurchaseAmountDigits('')
@@ -318,7 +303,6 @@ function CurrentMonthPage() {
     const creditAccount = accountById.get(creditPaymentAccountId)
 
     if (
-      !creditPaymentDate ||
       !sourceAccount ||
       !creditAccount ||
       sourceAccount.id === creditAccount.id ||
@@ -331,28 +315,25 @@ function CurrentMonthPage() {
       return
     }
 
-    const newCreditPayment: CreditPaymentTransaction = {
-      id: Date.now(),
-      kind: 'creditPayment',
-      paymentId: `credit-payment-${Date.now()}`,
-      date: Number(creditPaymentDate),
-      category: 'Credit Payment',
-      subcategory: `${sourceAccount.name} -> ${creditAccount.name}`,
-      medium: sourceAccount.name,
-      type: 'Credit Payment',
-      amountCents: creditPaymentAmountCents,
-      comments: creditPaymentComments,
-      sourceAccountId: sourceAccount.id,
-      sourceAccountName: sourceAccount.name,
-      creditAccountId: creditAccount.id,
-      creditAccountName: creditAccount.name,
-    }
-
     setTransactions((currentTransactions) => [
       ...currentTransactions,
-      newCreditPayment,
+      {
+        id: Date.now(),
+        kind: 'creditPayment',
+        paymentId: `credit-payment-${Date.now()}`,
+        transactionNo: currentTransactions.length + 1,
+        category: 'Credit Payment',
+        subcategory: `${sourceAccount.name} -> ${creditAccount.name}`,
+        medium: sourceAccount.name,
+        type: 'Credit Payment',
+        amountCents: creditPaymentAmountCents,
+        comments: creditPaymentComments,
+        sourceAccountId: sourceAccount.id,
+        sourceAccountName: sourceAccount.name,
+        creditAccountId: creditAccount.id,
+        creditAccountName: creditAccount.name,
+      },
     ])
-    setCreditPaymentDate('')
     setCreditPaymentSourceId('')
     setCreditPaymentAccountId('')
     setCreditPaymentAmountDigits('')
@@ -370,8 +351,10 @@ function CurrentMonthPage() {
     if (!confirmed) return
 
     setTransactions((currentTransactions) =>
-      currentTransactions.filter(
-        (currentTransaction) => currentTransaction.id !== transaction.id,
+      renumberCurrentMonthTransactions(
+        currentTransactions.filter(
+          (currentTransaction) => currentTransaction.id !== transaction.id,
+        ),
       ),
     )
   }
@@ -400,7 +383,7 @@ function CurrentMonthPage() {
         <div className="summary-item">
           <span>Net</span>
           <strong className={realizedProfitLossClass}>
-            ${formatLedgerMoney(realizedProfitLossCents)}
+            ${formatLedgerMoney(realizedProfitLossDisplayCents)}
           </strong>
         </div>
       </section>
@@ -437,19 +420,6 @@ function CurrentMonthPage() {
 
         {entryMode === 'transaction' ? (
           <div className="transaction-entry-grid">
-            <label>
-              <span>Date</span>
-              <input
-                aria-label="Transaction date"
-                className="date-input"
-                type="number"
-                min="1"
-                max="31"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </label>
-
             <label>
               <span>Category</span>
               <select
@@ -521,7 +491,7 @@ function CurrentMonthPage() {
             </label>
 
             <label>
-              <span>Amount</span>
+              <span aria-hidden="true"></span>
               <div className="amount-field">
                 <span className="currency-symbol">$</span>
 
@@ -566,19 +536,6 @@ function CurrentMonthPage() {
         {entryMode === 'transfer' ? (
           <div className="transfer-entry-grid">
             <label>
-              <span>Date</span>
-              <input
-                aria-label="Transfer date"
-                className="date-input"
-                type="number"
-                min="1"
-                max="31"
-                value={transferDate}
-                onChange={(event) => setTransferDate(event.target.value)}
-              />
-            </label>
-
-            <label>
               <span>From</span>
               <select
                 aria-label="Transfer from account"
@@ -613,7 +570,7 @@ function CurrentMonthPage() {
             </label>
 
             <label>
-              <span>Amount</span>
+              <span aria-hidden="true"></span>
               <div className="amount-field">
                 <span className="currency-symbol">$</span>
 
@@ -687,21 +644,6 @@ function CurrentMonthPage() {
             {creditAccounts.length > 0 && creditMode === 'purchase' ? (
               <div className="credit-purchase-grid">
                 <label>
-                  <span>Date</span>
-                  <input
-                    aria-label="Credit purchase date"
-                    className="date-input"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={creditPurchaseDate}
-                    onChange={(event) =>
-                      setCreditPurchaseDate(event.target.value)
-                    }
-                  />
-                </label>
-
-                <label>
                   <span>Credit Account</span>
                   <select
                     aria-label="Credit purchase account"
@@ -745,7 +687,7 @@ function CurrentMonthPage() {
                 </label>
 
                 <label>
-                  <span>Amount</span>
+                  <span aria-hidden="true"></span>
                   <div className="amount-field">
                     <span className="currency-symbol">$</span>
 
@@ -798,21 +740,6 @@ function CurrentMonthPage() {
             {creditAccounts.length > 0 && creditMode === 'payment' ? (
               <div className="credit-payment-grid">
                 <label>
-                  <span>Date</span>
-                  <input
-                    aria-label="Credit payment date"
-                    className="date-input"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={creditPaymentDate}
-                    onChange={(event) =>
-                      setCreditPaymentDate(event.target.value)
-                    }
-                  />
-                </label>
-
-                <label>
                   <span>Pay From</span>
                   <select
                     aria-label="Credit payment source account"
@@ -851,7 +778,7 @@ function CurrentMonthPage() {
                 </label>
 
                 <label>
-                  <span>Amount</span>
+                  <span aria-hidden="true"></span>
                   <div className="amount-field">
                     <span className="currency-symbol">$</span>
 
@@ -908,7 +835,7 @@ function CurrentMonthPage() {
         <table className="transaction-table">
           <thead>
             <tr>
-              <th>Date</th>
+              <th>#</th>
               <th>Category</th>
               <th>Description</th>
               <th>Account</th>
@@ -923,7 +850,9 @@ function CurrentMonthPage() {
             {sortedTransactions.map((transaction) => {
               return (
                 <tr className="transaction-row" key={transaction.id}>
-                  <td data-label="Date">{transaction.date}</td>
+                  <td data-label="Transaction No.">
+                    {transaction.transactionNo}
+                  </td>
                   <td data-label="Category">
                     {getLedgerCategory(transaction)}
                   </td>
@@ -943,7 +872,7 @@ function CurrentMonthPage() {
                   <td data-label="Comments">{transaction.comments}</td>
                   <td className="transaction-action-cell">
                     <button
-                      aria-label={`Delete transaction from day ${transaction.date}`}
+                      aria-label={`Delete transaction ${transaction.transactionNo}`}
                       className="delete-transaction"
                       type="button"
                       onClick={() => deleteTransaction(transaction)}

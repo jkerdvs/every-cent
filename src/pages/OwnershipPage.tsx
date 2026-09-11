@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import CalendarDatePicker from '../components/CalendarDatePicker'
 import {
   getInvestmentAccounts as getInvestmentBalanceAccounts,
   loadBalanceAccounts,
@@ -24,19 +25,19 @@ import type {
   InvestmentTransaction,
 } from '../data/ownership'
 
-function parseDateInput(value: string) {
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+function parseDatePickerInput(value: string) {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
 
   if (!match) return null
 
-  const month = Number(match[1])
-  const day = Number(match[2])
-  const year = Number(match[3])
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
 
   if (
+    !Number.isInteger(year) ||
     !Number.isInteger(month) ||
     !Number.isInteger(day) ||
-    !Number.isInteger(year) ||
     month < 1 ||
     month > 12 ||
     day < 1 ||
@@ -210,7 +211,7 @@ function OwnershipPage() {
   function addBuyTransaction() {
     const cleanTicker = buyTicker.trim().toUpperCase()
     const parsedShares = Number(buyShares)
-    const parsedDate = parseDateInput(buyDate)
+    const parsedDate = parseDatePickerInput(buyDate)
     const account = accountById.get(buyAccountId)
 
     if (
@@ -222,7 +223,7 @@ function OwnershipPage() {
       buyCostBasisCents <= 0
     ) {
       setValidationMessage(
-        'Enter a date as MM/DD/YYYY, account, ticker, positive shares, and a positive cost basis.',
+        'Select a date, account, ticker, positive shares, and a positive cost basis.',
       )
       return
     }
@@ -259,7 +260,7 @@ function OwnershipPage() {
   function addSellTransaction() {
     const cleanTicker = sellTicker.trim().toUpperCase()
     const parsedShares = Number(sellShares)
-    const parsedDate = parseDateInput(sellDate)
+    const parsedDate = parseDatePickerInput(sellDate)
     const account = accountById.get(sellAccountId)
     const currentPosition = getPosition(sellAccountId, cleanTicker)
     const currentShares = currentPosition?.shares ?? 0
@@ -277,7 +278,7 @@ function OwnershipPage() {
       !Number.isFinite(sellNetGainLossCents)
     ) {
       setValidationMessage(
-        'Enter a date as MM/DD/YYYY, account, ticker, positive shares, total proceeds, and a valid net gain/loss.',
+        'Select a date, account, ticker, positive shares, total proceeds, and a valid net gain/loss.',
       )
       return
     }
@@ -416,7 +417,7 @@ function OwnershipPage() {
     const confirmed = window.confirm(
       `Remove ${cleanTicker} from ${getAccountName(
         account,
-      )}?\n\nThis will permanently delete the holding, shares, cost basis, and related equity transactions for this account.`,
+      )}?\n\nThis will remove the holding and amount invested for this position without changing brokerage cash.`,
     )
 
     if (!confirmed) return
@@ -429,10 +430,11 @@ function OwnershipPage() {
       ),
     )
     setTransactions((currentTransactions) =>
-      currentTransactions.filter(
-        (transaction) =>
-          transaction.accountId !== removeHoldingAccountId ||
-          transaction.ticker !== cleanTicker,
+      currentTransactions.map((transaction) =>
+        transaction.accountId === removeHoldingAccountId &&
+        transaction.ticker === cleanTicker
+          ? { ...transaction, affectsPosition: false }
+          : transaction,
       ),
     )
     setRemoveHoldingTicker('')
@@ -522,7 +524,7 @@ function OwnershipPage() {
         <div className="ownership-action-row">
           <button
             aria-expanded={showBuyEntry}
-            className={`ownership-entry-toggle ${
+            className={`ownership-entry-toggle buy-toggle ${
               showBuyEntry ? 'active' : ''
             }`}
             type="button"
@@ -538,7 +540,7 @@ function OwnershipPage() {
 
           <button
             aria-expanded={showSellEntry}
-            className={`ownership-entry-toggle ${
+            className={`ownership-entry-toggle sell-toggle ${
               showSellEntry ? 'active' : ''
             }`}
             type="button"
@@ -565,7 +567,7 @@ function OwnershipPage() {
               setShowRemoveHoldingEntry(false)
             }}
           >
-            Add Current Holding
+            Add Existing
           </button>
 
           <button
@@ -581,7 +583,7 @@ function OwnershipPage() {
               setShowHoldingEntry(false)
             }}
           >
-            Remove Holding
+            Remove
           </button>
         </div>
 
@@ -589,12 +591,10 @@ function OwnershipPage() {
           <div className="buy-entry">
             <label>
               <span>Date</span>
-              <input
-                aria-label="Buy date"
-                placeholder="MM/DD/YYYY"
-                type="text"
+              <CalendarDatePicker
+                ariaLabel="Buy date"
                 value={buyDate}
-                onChange={(event) => setBuyDate(event.target.value)}
+                onChange={setBuyDate}
               />
             </label>
 
@@ -665,12 +665,10 @@ function OwnershipPage() {
           <div className="sell-entry">
             <label>
               <span>Date</span>
-              <input
-                aria-label="Sell date"
-                placeholder="MM/DD/YYYY"
-                type="text"
+              <CalendarDatePicker
+                ariaLabel="Sell date"
                 value={sellDate}
-                onChange={(event) => setSellDate(event.target.value)}
+                onChange={setSellDate}
               />
             </label>
 
@@ -818,8 +816,12 @@ function OwnershipPage() {
               </div>
             </label>
 
-            <button type="button" onClick={addCurrentHolding}>
-              Add Holding
+            <button
+              aria-label="Add current holding"
+              type="button"
+              onClick={addCurrentHolding}
+            >
+              +
             </button>
           </div>
         ) : null}
@@ -862,8 +864,12 @@ function OwnershipPage() {
               </select>
             </label>
 
-            <button type="button" onClick={removeHolding}>
-              Remove Holding
+            <button
+              aria-label="Remove holding"
+              type="button"
+              onClick={removeHolding}
+            >
+              −
             </button>
           </div>
         ) : null}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import CalendarDatePicker from '../components/CalendarDatePicker'
 import {
   getBalanceSections,
   loadBalanceAccounts,
@@ -13,6 +14,7 @@ import {
   formatSystemMoneyInput,
   getOptionsCashAdjustmentForAccountFromTrades,
   loadOptionTrades,
+  parseSystemMoneyInputToCents,
   saveOptionTrades,
 } from '../data/system'
 import type { OptionTrade, OptionType } from '../data/system'
@@ -22,10 +24,9 @@ type EntryMode = OptionType | null
 
 const emptyForm = {
   accountId: '',
-  date: '',
   ticker: '',
   expiration: '',
-  strikeDigits: '',
+  strikeValue: '',
   costBasisDigits: '',
 }
 
@@ -70,19 +71,39 @@ function TrashIcon() {
   )
 }
 
-function parseDateInput(value: string) {
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <path
+        d="M20 6 9 17l-5-5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  )
+}
+
+function parseDatePickerInput(value: string) {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
 
   if (!match) return null
 
-  const month = Number(match[1])
-  const day = Number(match[2])
-  const year = Number(match[3])
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
 
   if (
+    !Number.isInteger(year) ||
     !Number.isInteger(month) ||
     !Number.isInteger(day) ||
-    !Number.isInteger(year) ||
     month < 1 ||
     month > 12 ||
     day < 1 ||
@@ -94,15 +115,65 @@ function parseDateInput(value: string) {
   return year * 10000 + month * 100 + day
 }
 
-function formatSystemDate(value: number) {
+function getDateParts(value: number) {
   const year = Math.floor(value / 10000)
   const month = Math.floor((value % 10000) / 100)
   const day = value % 100
 
-  return `${String(month).padStart(2, '0')}/${String(day).padStart(
-    2,
-    '0',
-  )}/${year}`
+  return { day, month, year }
+}
+
+function getTodayDateValue() {
+  const today = new Date()
+
+  return (
+    today.getFullYear() * 10000 +
+    (today.getMonth() + 1) * 100 +
+    today.getDate()
+  )
+}
+
+function getCalendarDayIndex(value: number) {
+  const { day, month, year } = getDateParts(value)
+
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000)
+}
+
+function formatDte(expiration: number, today: number) {
+  return `${
+    getCalendarDayIndex(expiration) - getCalendarDayIndex(today)
+  } DTE`
+}
+
+function parseRealizedProfitLossInput(value: string) {
+  const normalizedValue = value.trim().replace(/[$,]/g, '')
+
+  if (
+    !normalizedValue ||
+    normalizedValue === '-' ||
+    normalizedValue === '+' ||
+    normalizedValue === '.' ||
+    normalizedValue === '-.' ||
+    normalizedValue === '+.'
+  ) {
+    return null
+  }
+
+  const numericValue = Number(normalizedValue)
+
+  if (!Number.isFinite(numericValue)) return null
+
+  return parseSystemMoneyInputToCents(normalizedValue)
+}
+
+function getNextTradeNo(trades: OptionTrade[]) {
+  return (
+    trades.reduce(
+      (highestTradeNo, trade) =>
+        Math.max(highestTradeNo, trade.tradeNo),
+      0,
+    ) + 1
+  )
 }
 
 function getOptionsTradingAccounts() {
@@ -126,6 +197,9 @@ function SystemPage() {
   const [trades, setTrades] = useState<OptionTrade[]>(loadOptionTrades)
   const [entryMode, setEntryMode] = useState<EntryMode>(null)
   const [form, setForm] = useState(emptyForm)
+  const [todayDateValue, setTodayDateValue] = useState(getTodayDateValue)
+  const [realizedProfitLossInputs, setRealizedProfitLossInputs] =
+    useState<Record<number, string>>({})
   const [validationMessage, setValidationMessage] = useState('')
   const optionsTradingAccounts = useMemo(() => getOptionsTradingAccounts(), [])
   const accountById = useMemo(() => {
@@ -145,7 +219,10 @@ function SystemPage() {
   }, [openTrades])
   const realizedProfitLossCents = useMemo(() => {
     return trades.reduce(
-      (total, trade) => total + (trade.realizedProfitLossCents ?? 0),
+      (total, trade) =>
+        trade.status === 'closed'
+          ? total + (trade.realizedProfitLossCents ?? 0)
+          : total,
       0,
     )
   }, [trades])
@@ -173,9 +250,9 @@ function SystemPage() {
     }, 0)
   }, [optionsTradingAccounts, trades])
   const sortedTrades = useMemo(() => {
-    return [...trades].sort((a, b) => b.id - a.id)
+    return [...trades].sort((a, b) => b.tradeNo - a.tradeNo)
   }, [trades])
-  const strikeCents = form.strikeDigits ? Number(form.strikeDigits) : 0
+  const strikeCents = parseSystemMoneyInputToCents(form.strikeValue)
   const costBasisCents = form.costBasisDigits
     ? Number(form.costBasisDigits)
     : 0
@@ -190,9 +267,19 @@ function SystemPage() {
     saveOptionTrades(trades)
   }, [trades])
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setTodayDateValue(getTodayDateValue())
+    }, 60000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
   function updateMoneyDigits(
     value: string,
-    field: 'strikeDigits' | 'costBasisDigits',
+    field: 'costBasisDigits',
   ) {
     setForm((currentForm) => ({
       ...currentForm,
@@ -200,24 +287,86 @@ function SystemPage() {
     }))
   }
 
+  function updateStrikeValue(value: string) {
+    const cleanValue = value.replace(/[^\d.]/g, '')
+    const [wholeValue = '', ...decimalParts] = cleanValue.split('.')
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      strikeValue:
+        decimalParts.length > 0
+          ? `${wholeValue}.${decimalParts.join('')}`
+          : wholeValue,
+    }))
+  }
+
+  function getRealizedProfitLossInputValue(trade: OptionTrade) {
+    const inputValue = realizedProfitLossInputs[trade.id]
+
+    if (typeof inputValue === 'string') return inputValue
+    if (typeof trade.realizedProfitLossCents !== 'number') return ''
+
+    return formatSystemMoneyInput(trade.realizedProfitLossCents)
+  }
+
+  function updateRealizedProfitLoss(trade: OptionTrade, value: string) {
+    if (trade.status !== 'open') return
+
+    const parsedCents = parseRealizedProfitLossInput(value)
+
+    setRealizedProfitLossInputs((currentInputs) => ({
+      ...currentInputs,
+      [trade.id]: value,
+    }))
+
+    setTrades((currentTrades) =>
+      currentTrades.map((currentTrade) => {
+        if (currentTrade.id !== trade.id || currentTrade.status !== 'open') {
+          return currentTrade
+        }
+
+        if (parsedCents === null) {
+          if (value.trim()) return currentTrade
+
+          const nextTrade = { ...currentTrade }
+          delete nextTrade.realizedProfitLossCents
+
+          return nextTrade
+        }
+
+        return {
+          ...currentTrade,
+          realizedProfitLossCents: parsedCents,
+        }
+      }),
+    )
+  }
+
+  function normalizeRealizedProfitLossInput(tradeId: number) {
+    setRealizedProfitLossInputs((currentInputs) => {
+      const nextInputs = { ...currentInputs }
+      delete nextInputs[tradeId]
+
+      return nextInputs
+    })
+  }
+
   function addOptionTrade() {
     if (!entryMode) return
 
     const account = accountById.get(form.accountId)
-    const date = parseDateInput(form.date)
-    const expiration = parseDateInput(form.expiration)
+    const expiration = parseDatePickerInput(form.expiration)
     const ticker = form.ticker.trim().toUpperCase()
 
     if (
       !account ||
-      date === null ||
       expiration === null ||
       !ticker ||
       strikeCents <= 0 ||
       costBasisCents <= 0
     ) {
       setValidationMessage(
-        'Enter account, dates as MM/DD/YYYY, ticker, strike, and cost basis.',
+        'Enter account, expiration, ticker, strike, and cost basis.',
       )
       return
     }
@@ -225,9 +374,9 @@ function SystemPage() {
     setTrades((currentTrades) => [
       {
         id: Date.now(),
+        tradeNo: getNextTradeNo(currentTrades),
         accountId: account.id,
         accountName: account.name,
-        date,
         ticker,
         optionType: entryMode,
         expiration,
@@ -243,14 +392,49 @@ function SystemPage() {
 
   function deleteTrade(trade: OptionTrade) {
     const confirmed = window.confirm(
-      `Delete ${trade.ticker} ${trade.optionType === 'call' ? 'call' : 'put'}?\n\nThis options trade will be permanently removed.`,
+      `Delete trade ${trade.tradeNo}: ${trade.ticker} ${trade.optionType === 'call' ? 'call' : 'put'}?\n\nThis options trade will be permanently removed and its brokerage cash effect will be undone.`,
     )
 
     if (!confirmed) return
 
+    normalizeRealizedProfitLossInput(trade.id)
     setTrades((currentTrades) =>
       currentTrades.filter((currentTrade) => currentTrade.id !== trade.id),
     )
+  }
+
+  function closeTrade(trade: OptionTrade) {
+    if (trade.status !== 'open') return
+
+    const realizedProfitLossCents = trade.realizedProfitLossCents
+
+    if (typeof realizedProfitLossCents !== 'number') {
+      setValidationMessage(
+        `Enter realized P/L for ${trade.ticker} before closing the trade.`,
+      )
+      return
+    }
+
+    setTrades((currentTrades) =>
+      currentTrades.map((currentTrade) => {
+        if (
+          currentTrade.id !== trade.id ||
+          currentTrade.status !== 'open'
+        ) {
+          return currentTrade
+        }
+
+        return {
+          ...currentTrade,
+          status: 'closed',
+          closeDate: getTodayDateValue(),
+          proceedsCents:
+            currentTrade.costBasisCents + realizedProfitLossCents,
+        }
+      }),
+    )
+    normalizeRealizedProfitLossInput(trade.id)
+    setValidationMessage('')
   }
 
   return (
@@ -283,7 +467,7 @@ function SystemPage() {
         <div className="ownership-action-row">
           <button
             aria-expanded={entryMode === 'call'}
-            className={`ownership-entry-toggle ${
+            className={`ownership-entry-toggle buy-toggle ${
               entryMode === 'call' ? 'active' : ''
             }`}
             type="button"
@@ -299,7 +483,7 @@ function SystemPage() {
 
           <button
             aria-expanded={entryMode === 'put'}
-            className={`ownership-entry-toggle ${
+            className={`ownership-entry-toggle sell-toggle ${
               entryMode === 'put' ? 'active' : ''
             }`}
             type="button"
@@ -339,22 +523,6 @@ function SystemPage() {
             </label>
 
             <label>
-              <span>Date</span>
-              <input
-                aria-label={`${entryMode} trade date`}
-                placeholder="MM/DD/YYYY"
-                type="text"
-                value={form.date}
-                onChange={(event) =>
-                  setForm((currentForm) => ({
-                    ...currentForm,
-                    date: event.target.value,
-                  }))
-                }
-              />
-            </label>
-
-            <label>
               <span>Ticker</span>
               <input
                 aria-label={`${entryMode} ticker`}
@@ -371,15 +539,13 @@ function SystemPage() {
 
             <label>
               <span>Expiration</span>
-              <input
-                aria-label={`${entryMode} expiration`}
-                placeholder="MM/DD/YYYY"
-                type="text"
+              <CalendarDatePicker
+                ariaLabel={`${entryMode} expiration`}
                 value={form.expiration}
-                onChange={(event) =>
+                onChange={(value) =>
                   setForm((currentForm) => ({
                     ...currentForm,
-                    expiration: event.target.value,
+                    expiration: value,
                   }))
                 }
               />
@@ -387,16 +553,14 @@ function SystemPage() {
 
             <label>
               <span>Strike</span>
-              <div className="investment-amount-field">
+              <div className="system-strike-field">
                 <span>$</span>
                 <input
                   aria-label={`${entryMode} strike`}
-                  inputMode="numeric"
+                  inputMode="decimal"
                   type="text"
-                  value={formatSystemMoneyInput(strikeCents)}
-                  onChange={(event) =>
-                    updateMoneyDigits(event.target.value, 'strikeDigits')
-                  }
+                  value={form.strikeValue}
+                  onChange={(event) => updateStrikeValue(event.target.value)}
                 />
               </div>
             </label>
@@ -439,11 +603,11 @@ function SystemPage() {
         <table className="system-ledger-table">
           <thead>
             <tr>
-              <th>Date</th>
+              <th>#</th>
               <th>Account</th>
               <th>Ticker</th>
               <th>C/P</th>
-              <th>Expiration</th>
+              <th>DTE</th>
               <th>Strike</th>
               <th>Cost Basis</th>
               <th>Status</th>
@@ -454,32 +618,66 @@ function SystemPage() {
 
           <tbody>
             {sortedTrades.map((trade) => (
-              <tr key={trade.id}>
-                <td>{formatSystemDate(trade.date)}</td>
+              <tr
+                className={`system-trade-row ${trade.status}`}
+                key={trade.id}
+              >
+                <td>{trade.tradeNo}</td>
                 <td>{trade.accountName}</td>
                 <td>{trade.ticker}</td>
                 <td>{trade.optionType === 'call' ? 'C' : 'P'}</td>
-                <td>{formatSystemDate(trade.expiration)}</td>
+                <td>{formatDte(trade.expiration, todayDateValue)}</td>
                 <td>{formatSystemMoney(trade.strikeCents)}</td>
                 <td>{formatSystemMoney(trade.costBasisCents)}</td>
                 <td>{trade.status === 'open' ? 'Open' : 'Closed'}</td>
                 <td
                   className={
-                    trade.realizedProfitLossCents &&
+                    typeof trade.realizedProfitLossCents === 'number' &&
                     trade.realizedProfitLossCents < 0
                       ? 'negative'
-                      : trade.realizedProfitLossCents &&
+                      : typeof trade.realizedProfitLossCents === 'number' &&
                           trade.realizedProfitLossCents > 0
                         ? 'positive'
                         : 'neutral'
                   }
                 >
-                  {trade.status === 'closed' &&
-                  typeof trade.realizedProfitLossCents === 'number'
-                    ? formatSystemMoney(trade.realizedProfitLossCents)
-                    : '—'}
+                  {trade.status === 'open' ? (
+                    <div className="system-realized-field">
+                      <span>$</span>
+                      <input
+                        aria-label={`${trade.ticker} realized profit or loss`}
+                        inputMode="decimal"
+                        type="text"
+                        value={getRealizedProfitLossInputValue(trade)}
+                        onBlur={() =>
+                          normalizeRealizedProfitLossInput(trade.id)
+                        }
+                        onChange={(event) =>
+                          updateRealizedProfitLoss(
+                            trade,
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  ) : typeof trade.realizedProfitLossCents === 'number' ? (
+                    formatSystemMoney(trade.realizedProfitLossCents)
+                  ) : (
+                    formatSystemMoney(0)
+                  )}
                 </td>
-                <td className="transaction-action-cell">
+                <td className="system-action-cell">
+                  {trade.status === 'open' ? (
+                      <button
+                        aria-label={`Close ${trade.ticker} option trade`}
+                        className="close-system-trade"
+                        type="button"
+                        onClick={() => closeTrade(trade)}
+                      >
+                        <CheckIcon />
+                      </button>
+                  ) : null}
+
                   <button
                     aria-label={`Delete ${trade.ticker} option trade`}
                     className="delete-transaction"

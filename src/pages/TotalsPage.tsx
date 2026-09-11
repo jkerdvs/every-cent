@@ -18,6 +18,9 @@ import {
   loadInvestmentTransactions,
   sortInvestmentAccountConfigs,
 } from '../data/ownership'
+import type { InvestmentTransaction } from '../data/ownership'
+import { loadOptionTrades } from '../data/system'
+import type { OptionTrade } from '../data/system'
 
 type MonthlySnapshot = {
   monthId: string
@@ -67,12 +70,108 @@ function getRealizedClass(cents: number) {
   return 'neutral'
 }
 
+function isCurrentMonthDate(value: number) {
+  const year = Math.floor(value / 10000)
+  const month = Math.floor((value % 10000) / 100)
+  const monthId = `${year}-${String(month).padStart(2, '0')}`
+
+  return monthId === CURRENT_MONTH_ID
+}
+
+function addSignedRealizedAmount(
+  totals: {
+    profitCents: number
+    lossCents: number
+    realizedProfitLossCents: number
+  },
+  amountCents: number,
+) {
+  if (amountCents > 0) {
+    return {
+      ...totals,
+      profitCents: totals.profitCents + amountCents,
+      realizedProfitLossCents:
+        totals.realizedProfitLossCents + amountCents,
+    }
+  }
+
+  if (amountCents < 0) {
+    return {
+      ...totals,
+      lossCents: totals.lossCents + Math.abs(amountCents),
+      realizedProfitLossCents:
+        totals.realizedProfitLossCents + amountCents,
+    }
+  }
+
+  return totals
+}
+
+function addInvestmentRealizedTotals(
+  totals: {
+    profitCents: number
+    lossCents: number
+    realizedProfitLossCents: number
+  },
+  transactions: InvestmentTransaction[],
+) {
+  return transactions
+    .filter(
+      (transaction) =>
+        transaction.type === 'sell' &&
+        isCurrentMonthDate(transaction.date) &&
+        typeof transaction.netGainLossCents === 'number',
+    )
+    .reduce(
+      (nextTotals, transaction) =>
+        addSignedRealizedAmount(
+          nextTotals,
+          transaction.netGainLossCents ?? 0,
+        ),
+      totals,
+    )
+}
+
+function addOptionRealizedTotals(
+  totals: {
+    profitCents: number
+    lossCents: number
+    realizedProfitLossCents: number
+  },
+  trades: OptionTrade[],
+) {
+  return trades
+    .filter(
+      (trade) =>
+        trade.status === 'closed' &&
+        typeof trade.closeDate === 'number' &&
+        isCurrentMonthDate(trade.closeDate) &&
+        typeof trade.realizedProfitLossCents === 'number',
+    )
+    .reduce(
+      (nextTotals, trade) =>
+        addSignedRealizedAmount(
+          nextTotals,
+          trade.realizedProfitLossCents ?? 0,
+        ),
+      totals,
+    )
+}
+
 function getLiveSnapshot(): MonthlySnapshot {
   const transactions = loadCurrentMonthTransactions()
-  const monthTotals = calculateMonthTotals(transactions)
+  const investmentTransactions = loadInvestmentTransactions()
+  const optionTrades = loadOptionTrades()
+  const monthTotals = addOptionRealizedTotals(
+    addInvestmentRealizedTotals(
+      calculateMonthTotals(transactions),
+      investmentTransactions,
+    ),
+    optionTrades,
+  )
   const balanceAccounts = loadBalanceAccounts()
   const amountInvestedByAccount = getAmountInvestedByAccount(
-    loadInvestmentTransactions(),
+    investmentTransactions,
   )
   const investmentBalanceAccounts = getInvestmentAccounts(balanceAccounts)
   const accountById = new Map(
