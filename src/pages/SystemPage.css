@@ -1,0 +1,39 @@
+.retention-page { max-width: 960px; padding: 24px 24px 88px; font-size: 13px; }
+.retention-page h1 { margin: 0 0 20px; font-size: 22px; }
+.retention-latest { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 20px; }
+.retention-latest strong { font-size: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.retention-latest span, .retention-help { color: #666; }
+.retention-chart { margin: 26px 0 30px; }
+.retention-chart figcaption { color: #666; font-size: 11px; margin-bottom: 8px; }
+.retention-chart svg { display: block; width: 100%; max-height: 210px; }
+.retention-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.retention-heading h2 { margin: 0; font-size: 16px; }
+.retention-page button { cursor: pointer; }
+.retention-heading button, .retention-form-actions button { border: 1px solid #ddd; border-radius: 6px; background: #fff; padding: 8px 12px; color: #111; }
+.retention-page button:hover { background: #f4f4f4; }
+.retention-page :focus-visible { outline: 2px solid #555; outline-offset: 3px; }
+.retention-table-scroll { max-width: 100%; overflow-x: auto; }
+.retention-table { width: 100%; border-collapse: collapse; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.retention-table th { color: #666; font-size: 11px; font-weight: 600; border-bottom: 1px solid #ddd; }
+.retention-table th, .retention-table td { padding: 12px 10px; text-align: right; }
+.retention-table td { border-bottom: 1px solid #eee; }
+.retention-table th:first-child, .retention-table td:first-child { text-align: left; padding-left: 0; }
+.retention-edit { border: 0; background: none; padding: 4px 0; color: #111; text-decoration: underline; text-decoration-color: #ccc; text-underline-offset: 4px; }
+.retention-empty { color: #777; white-space: normal; }
+.retention-help { font-size: 12px; line-height: 1.6; margin: 14px 0 0; }
+.retention-form { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 12px; padding: 16px; margin: 0 0 16px; border: 1px solid #e5e5e5; border-radius: 6px; }
+.retention-form h3 { grid-column: 1 / -1; font-size: 14px; margin: 0; }
+.retention-form label { display: grid; gap: 6px; min-width: 0; color: #666; font-size: 11px; }
+.retention-form input { min-width: 0; width: 100%; height: 38px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; background: #fff; color: #111; font-size: 14px; }
+.retention-form .retention-help, .retention-error, .retention-form-actions { grid-column: 1 / -1; margin: 0; }
+.retention-error { color: #b42318; }
+.retention-form-actions { display: flex; gap: 8px; }
+.retention-form-actions button[type='submit'] { background: #111; color: #fff; }
+@media (max-width: 700px) {
+  .retention-page { padding: 18px 12px 88px; }
+  .retention-page h1 { font-size: 20px; }
+  .retention-form { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
+  .retention-form input { font-size: 16px; min-height: 44px; }
+  .retention-heading button, .retention-form-actions button, .retention-edit { min-height: 44px; }
+  .retention-chart svg { min-height: 130px; }
+}
