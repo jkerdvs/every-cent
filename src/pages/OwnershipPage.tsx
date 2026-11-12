@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import CalendarDatePicker from '../components/CalendarDatePicker'
 import {
   getInvestmentAccounts as getInvestmentBalanceAccounts,
@@ -24,6 +25,15 @@ import type {
   Holding,
   InvestmentTransaction,
 } from '../data/ownership'
+import './OwnershipPage.css'
+
+const accountColors = ['#759784', '#8e9cb4', '#b99473', '#a393ac', '#7d9e9e', '#b5a66f']
+const otherAccountColor = '#9ca2a5'
+const formatAllocation = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+})
+const spyShareGoal = 100
 
 function parseDatePickerInput(value: string) {
   const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -159,6 +169,35 @@ function OwnershipPage() {
       0,
     )
   }, [amountInvestedByAccount])
+  const accountSummaries = investmentAccounts.map((account, index) => ({
+    account,
+    amountCents: amountInvestedByAccount.get(account.id) ?? 0,
+    color: accountColors[index % accountColors.length],
+  }))
+  const allocation = accountSummaries.map(({ account, amountCents, color }) => ({
+    id: `account:${account.id}`,
+    name: account.name,
+    color,
+    share: totalInvestedCents > 0 ? amountCents / totalInvestedCents : 0,
+  }))
+  // The existing total can include saved positions for accounts outside the configured groups.
+  const otherAmountCents = [...amountInvestedByAccount].reduce(
+    (total, [id, amountCents]) =>
+      accountById.has(id) ? total : total + amountCents,
+    0,
+  )
+  if (otherAmountCents !== 0 && totalInvestedCents > 0) {
+    allocation.push({
+      id: 'other-accounts',
+      name: 'Other accounts',
+      color: otherAccountColor,
+      share: otherAmountCents / totalInvestedCents,
+    })
+  }
+  const hasAllocation =
+    totalInvestedCents > 0 &&
+    allocation.every(({ share }) => Number.isFinite(share) && share >= 0 && share <= 1)
+
   const sortedTransactions = useMemo(() => {
     return [...transactions].sort((a, b) => b.id - a.id)
   }, [transactions])
@@ -443,82 +482,35 @@ function OwnershipPage() {
 
   return (
     <main className="ownership-page">
-      <div className="ownership-layout">
-        <section className="ownership-portfolio">
-          <div className="ownership-account-grid">
-            {investmentAccounts.map((account) => {
-              const accountPositions = positions
-                .filter((position) => position.accountId === account.id)
-                .sort((a, b) => {
-                  if (a.costBasisCents !== b.costBasisCents) {
-                    return b.costBasisCents - a.costBasisCents
-                  }
+      <section className="ownership-hero" aria-labelledby="ownership-invested-title">
+        <h1 id="ownership-invested-title">Amount Invested</h1>
+        <p className="ownership-hero-amount">{formatMoney(totalInvestedCents)}</p>
+      </section>
 
-                  return a.ticker.localeCompare(b.ticker)
-                })
-
-              return (
-                <section
-                  className="ownership-account-section"
-                  key={account.id}
-                >
-                  <div className="portfolio-heading">
-                    <h2>{getAccountName(account)}</h2>
-                  </div>
-
-                  <table className="ownership-table">
-                    <thead>
-                      <tr>
-                        <th>Ticker</th>
-                        <th>Shares</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {accountPositions.map((position) => (
-                        <tr key={`${position.accountId}-${position.ticker}`}>
-                          <td>{position.ticker}</td>
-                          <td>{formatShares(position.shares)}</td>
-                        </tr>
-                      ))}
-
-                      {accountPositions.length === 0 ? (
-                        <tr>
-                          <td className="empty-holdings" colSpan={2}>
-                            No open positions.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </section>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="amount-invested">
-          <h2>Amount Invested</h2>
-
-          <table className="invested-table">
-            <tbody>
-              {investmentAccounts.map((account) => (
-                <tr key={account.id}>
-                  <td>{getAccountName(account)}</td>
-                  <td>
-                    {formatMoney(amountInvestedByAccount.get(account.id) ?? 0)}
-                  </td>
-                </tr>
-              ))}
-
-              <tr className="total-row">
-                <td>Total</td>
-                <td>{formatMoney(totalInvestedCents)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      </div>
+      <section className="ownership-allocation" aria-labelledby="ownership-allocation-title">
+        <h2 id="ownership-allocation-title">Share of amount invested</h2>
+        <div className="ownership-allocation-bar" aria-hidden="true">
+          {hasAllocation && allocation.map(({ id, color, share }) => (
+            <span
+              key={id}
+              style={{ backgroundColor: color, width: `${share * 100}%` }}
+            />
+          ))}
+        </div>
+        {hasAllocation ? (
+          <ul className="ownership-allocation-legend">
+            {allocation.map(({ id, name, color, share }) => (
+              <li key={id}>
+                <span aria-hidden="true" className="ownership-swatch" style={{ backgroundColor: color }} />
+                <span>{name}</span>
+                <strong>{formatAllocation.format(share)}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>{totalInvestedCents === 0 ? 'No amount invested yet.' : 'Allocation unavailable.'}</p>
+        )}
+      </section>
 
       <section className="investment-ledger-section investment-entry-section">
         <div className="ownership-action-row">
@@ -879,95 +871,178 @@ function OwnershipPage() {
         ) : null}
       </section>
 
-      <section className="investment-ledger-section">
-        <h2>Recent Transactions</h2>
+      <div className="ownership-account-grid">
+        {accountSummaries.map(({ account, amountCents, color }) => {
+          const accountPositions = positions
+            .filter((position) => position.accountId === account.id)
+            .sort((a, b) => {
+              if (a.costBasisCents !== b.costBasisCents) {
+                return b.costBasisCents - a.costBasisCents
+              }
 
-        <table className="investment-ledger-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Account</th>
-              <th>Ticker</th>
-              <th>Shares</th>
-              <th>Amount</th>
-              <th></th>
-            </tr>
-          </thead>
+              return a.ticker.localeCompare(b.ticker)
+            })
 
-          <tbody>
-            {sortedTransactions.map((transaction) => (
-              <tr key={transaction.id}>
-                <td>{formatInvestmentDate(transaction.date)}</td>
-                <td className={`investment-type ${transaction.type}`}>
-                  {transaction.type === 'buy' ? 'Buy' : 'Sell'}
-                </td>
-                <td>
-                  {accountById.get(transaction.accountId)?.name ??
-                    transaction.accountName}
-                </td>
-                <td>{transaction.ticker}</td>
-                <td>{formatShares(transaction.shares)}</td>
-                <td>{formatMoney(transaction.amountCents)}</td>
-                <td className="transaction-action-cell">
-                  <button
-                    aria-label={`Delete ${transaction.ticker} investment transaction`}
-                    className="delete-transaction"
-                    type="button"
-                    onClick={() =>
-                      deleteInvestmentTransaction(transaction.id)
-                    }
-                  >
-                    <svg
-                      aria-hidden="true"
-                      fill="none"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      width="14"
-                    >
-                      <path
-                        d="M3 6h18"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M8 6V4h8v2"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M6 6l1 15h10l1-15"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M10 11v6M14 11v6"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                      />
-                    </svg>
-                  </button>
-                </td>
-              </tr>
-            ))}
+          const spyShares =
+            account.name.toLowerCase() === 'equity'
+              ? accountPositions.find((position) => position.ticker === 'SPY')?.shares ?? 0
+              : null
 
-            {sortedTransactions.length === 0 ? (
+          return (
+            <section
+              className="ownership-account-section"
+              key={account.id}
+              style={{ '--account-color': color } as CSSProperties}
+            >
+              <div className="ownership-account-heading">
+                <h2>{getAccountName(account)}</h2>
+                <div className="ownership-account-amount">
+                  <span>Amount invested</span>
+                  <strong>{formatMoney(amountCents)}</strong>
+                </div>
+              </div>
+
+              <table className="ownership-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Shares</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {accountPositions.map((position) => (
+                    <tr key={`${position.accountId}-${position.ticker}`}>
+                      <td>{position.ticker}</td>
+                      <td>{formatShares(position.shares)}</td>
+                    </tr>
+                  ))}
+
+                  {accountPositions.length === 0 ? (
+                    <tr>
+                      <td className="empty-holdings" colSpan={2}>
+                        No open positions.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+
+              {spyShares !== null && (
+                <div className="ownership-share-goal">
+                  <div>
+                    <span>SPY share goal</span>
+                    <span>{formatShares(spyShares)} / {spyShareGoal} shares</span>
+                  </div>
+                  <progress
+                    aria-label="SPY share goal"
+                    aria-valuetext={`${formatShares(spyShares)} of ${spyShareGoal} shares`}
+                    max={spyShareGoal}
+                    value={Math.min(spyShares, spyShareGoal)}
+                  />
+                </div>
+              )}
+            </section>
+          )
+        })}
+      </div>
+
+      <section className="investment-ledger-section ownership-ledger">
+        <h2 id="ownership-transactions-title">Recent Transactions</h2>
+
+        <div
+          aria-labelledby="ownership-transactions-title"
+          className="ownership-ledger-scroll"
+          role="region"
+          tabIndex={0}
+        >
+          <table className="investment-ledger-table">
+            <thead>
               <tr>
-                <td className="empty-holdings" colSpan={7}>
-                  No investment transactions yet.
-                </td>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Account</th>
+                <th>Ticker</th>
+                <th>Shares</th>
+                <th>Amount</th>
+                <th></th>
               </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {sortedTransactions.map((transaction) => (
+                <tr key={transaction.id}>
+                  <td>{formatInvestmentDate(transaction.date)}</td>
+                  <td className={`investment-type ${transaction.type}`}>
+                    {transaction.type === 'buy' ? 'Buy' : 'Sell'}
+                  </td>
+                  <td>
+                    {accountById.get(transaction.accountId)?.name ??
+                      transaction.accountName}
+                  </td>
+                  <td>{transaction.ticker}</td>
+                  <td>{formatShares(transaction.shares)}</td>
+                  <td>{formatMoney(transaction.amountCents)}</td>
+                  <td className="transaction-action-cell">
+                    <button
+                      aria-label={`Delete ${transaction.ticker} investment transaction`}
+                      className="delete-transaction"
+                      type="button"
+                      onClick={() =>
+                        deleteInvestmentTransaction(transaction.id)
+                      }
+                    >
+                      <svg
+                        aria-hidden="true"
+                        fill="none"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        width="14"
+                      >
+                        <path
+                          d="M3 6h18"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M8 6V4h8v2"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M6 6l1 15h10l1-15"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M10 11v6M14 11v6"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {sortedTransactions.length === 0 ? (
+                <tr>
+                  <td className="empty-holdings" colSpan={7}>
+                    No investment transactions yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   )

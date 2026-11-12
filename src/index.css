@@ -909,208 +909,12 @@ select {
   color: #111111;
 }
 
-.ownership-page {
-  padding: 22px 24px 88px;
-}
-
-.ownership-layout {
-  display: grid;
-  grid-template-columns: minmax(360px, 440px) minmax(230px, 280px);
-  width: min(920px, 100%);
-  max-width: 100%;
-  gap: 96px;
-  align-items: start;
-  margin: 0 auto;
-}
-
-.ownership-account-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(150px, 190px));
-  gap: 46px 56px;
-}
-
-.portfolio-heading {
-  margin-bottom: 8px;
-}
-
-.portfolio-heading h2,
-.investment-ledger-section h2 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.1;
-  letter-spacing: 0;
-}
-
-.amount-invested h2 {
-  margin: 0 0 18px;
-  font-size: 28px;
-  line-height: 1.1;
-  letter-spacing: 0;
-  text-align: center;
-}
-
-.ownership-table,
-.invested-table,
-.investment-ledger-table {
-  width: max-content;
-  max-width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-  font-size: 14px;
-}
-
-.ownership-table th,
-.investment-ledger-table th {
-  padding: 0 0 5px;
-  background: transparent;
-  color: #666666;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.ownership-table th,
-.ownership-table td,
-.invested-table td,
-.investment-ledger-table th,
-.investment-ledger-table td {
-  padding: 6px 0;
-  text-align: left;
-}
-
-.ownership-table th:first-child,
-.ownership-table td:first-child,
-.invested-table td:first-child,
-.investment-ledger-table th,
-.investment-ledger-table td {
-  padding-right: 22px;
-}
-
-.ownership-table th:nth-child(2),
-.ownership-table td:nth-child(2),
-.invested-table td:last-child,
-.investment-ledger-table th:nth-child(5),
-.investment-ledger-table th:nth-child(6),
-.investment-ledger-table td:nth-child(5),
-.investment-ledger-table td:nth-child(6) {
-  text-align: right;
-  white-space: nowrap;
-}
-
-.ownership-table th:nth-child(2),
-.ownership-table td:nth-child(2),
-.invested-table td:last-child,
-.investment-ledger-table td:last-child {
-  padding-right: 0;
-}
-
-.ownership-table th:nth-child(1),
-.ownership-table td:nth-child(1) {
-  min-width: 72px;
-}
-
-.ownership-table th:nth-child(2),
-.ownership-table td:nth-child(2) {
-  min-width: 58px;
-}
-
-.invested-table td:first-child {
-  min-width: 110px;
-}
-
-.investment-ledger-table th:nth-child(1),
-.investment-ledger-table td:nth-child(1) {
-  min-width: 48px;
-  text-align: center;
-}
-
-.investment-ledger-table th:nth-child(2),
-.investment-ledger-table td:nth-child(2) {
-  min-width: 48px;
-}
-
 .investment-type.buy {
   color: #15803d;
 }
 
 .investment-type.sell {
   color: #dc2626;
-}
-
-.investment-ledger-table th:nth-child(3),
-.investment-ledger-table td:nth-child(3) {
-  min-width: 112px;
-}
-
-.investment-ledger-table th:nth-child(4),
-.investment-ledger-table td:nth-child(4) {
-  min-width: 66px;
-}
-
-.investment-ledger-table tbody tr + tr td,
-.invested-table .total-row td {
-  border-top: 1px solid #f0f0f0;
-}
-
-.empty-holdings {
-  color: #777777;
-  text-align: left;
-}
-
-.investment-ledger-section {
-  width: min(920px, 100%);
-  max-width: 100%;
-  margin: 42px auto 0;
-  overflow-x: auto;
-}
-
-.investment-ledger-section h2 {
-  margin-bottom: 10px;
-}
-
-.ownership-action-row {
-  display: flex;
-  gap: 24px;
-}
-
-.ownership-entry-toggle {
-  min-height: 32px;
-  border: none;
-  border-bottom: 1px solid transparent;
-  background: transparent;
-  border-radius: 6px;
-  padding: 0 10px;
-  color: #777777;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-}
-
-.ownership-entry-toggle:hover {
-  color: #111111;
-}
-
-.ownership-entry-toggle.active {
-  border-bottom-color: #111111;
-  color: #111111;
-  font-weight: 700;
-}
-
-.ownership-entry-toggle.buy-toggle {
-  color: #3f7a4b;
-}
-
-.ownership-entry-toggle.buy-toggle:hover,
-.ownership-entry-toggle.buy-toggle.active {
-  color: #245c31;
-}
-
-.ownership-entry-toggle.sell-toggle {
-  color: #9a4d4d;
-}
-
-.ownership-entry-toggle.sell-toggle:hover,
-.ownership-entry-toggle.sell-toggle.active {
-  color: #733232;
 }
 
 .investment-entry,
@@ -1125,7 +929,7 @@ select {
 
 .sell-entry {
   display: grid;
-  grid-template-columns: 104px minmax(118px, 140px) 82px 82px 118px 118px auto;
+  grid-template-columns: 104px minmax(118px, 140px) 82px 82px repeat(2, minmax(0, 118px)) auto;
   gap: 7px;
   margin-top: 8px;
   max-width: 720px;
@@ -1268,22 +1072,6 @@ select {
   margin: 10px 0 0;
   color: #dc2626;
   font-size: 14px;
-}
-
-.amount-invested {
-  width: max-content;
-  max-width: 100%;
-  margin: 46px auto 0;
-}
-
-.invested-table {
-  margin: 0 auto;
-  font-size: 15px;
-}
-
-.invested-table .total-row {
-  border-bottom: none;
-  font-weight: 700;
 }
 
 .system-page {
@@ -1780,14 +1568,6 @@ select {
     row-gap: 42px;
   }
 
-  .ownership-layout {
-    grid-template-columns: minmax(260px, 360px);
-    width: 100%;
-    max-width: 360px;
-    gap: 42px;
-    justify-content: center;
-  }
-
   .totals-layout,
   .totals-balance-grid {
     grid-template-columns: 1fr;
@@ -1817,10 +1597,6 @@ select {
     padding: 14px 12px 102px;
   }
 
-  .ownership-page {
-    padding: 18px 12px 102px;
-  }
-
   .storage-page {
     padding: 18px 12px 102px;
   }
@@ -1837,11 +1613,6 @@ select {
   .transaction-setup-grid {
     grid-template-columns: 1fr;
     gap: 18px;
-  }
-
-  .ownership-account-grid {
-    grid-template-columns: minmax(120px, 160px);
-    gap: 34px;
   }
 
   .investment-entry,
