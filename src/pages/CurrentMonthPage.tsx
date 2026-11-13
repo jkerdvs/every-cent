@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import {
   CURRENT_MONTH_LABEL,
   calculateMonthTotals,
@@ -20,6 +20,12 @@ import {
   getCreditAccounts,
   loadBalanceAccounts,
 } from '../data/balanceSheet'
+import {
+  getDefaultInvestmentAccountColor,
+  getDefaultTransactionAccountColor,
+  loadInvestmentAccountConfigs,
+  sortInvestmentAccountConfigs,
+} from '../data/ownership'
 
 type EntryMode = 'transaction' | 'transfer' | 'credit'
 type CreditMode = 'purchase' | 'payment'
@@ -44,33 +50,39 @@ function getTransactionAmountClass(transaction: CurrentMonthEntry) {
   return 'neutral'
 }
 
-function getLedgerCategory(transaction: CurrentMonthEntry) {
-  if (isCreditPurchaseTransaction(transaction)) return 'Credit Purchase'
-  if (isCreditPaymentTransaction(transaction)) return 'Credit Payment'
+const ledgerCurrency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+})
 
-  return transaction.category
-}
+type LedgerAccountReference = { id?: string; name?: string }
 
-function getLedgerSubcategory(transaction: CurrentMonthEntry) {
+function getLedgerAccounts(transaction: CurrentMonthEntry): LedgerAccountReference[] {
   if (isTransferTransaction(transaction)) {
-    return `${transaction.fromMedium} -> ${transaction.toMedium}`
+    return [{ name: transaction.fromMedium }, { name: transaction.toMedium }]
   }
 
   if (isCreditPaymentTransaction(transaction)) {
-    return `${transaction.sourceAccountName} -> ${transaction.creditAccountName}`
+    return [
+      { id: transaction.sourceAccountId, name: transaction.sourceAccountName || transaction.medium },
+      { id: transaction.creditAccountId, name: transaction.creditAccountName },
+    ]
+  }
+
+  if (isCreditPurchaseTransaction(transaction)) {
+    return [{ id: transaction.creditAccountId, name: transaction.creditAccountName || transaction.medium }]
+  }
+
+  return [{ name: transaction.medium }]
+}
+
+function getLedgerDescription(transaction: CurrentMonthEntry) {
+  if (isTransferTransaction(transaction) || isCreditPaymentTransaction(transaction)) {
+    // Older rows store their account path in the description.
+    if (transaction.subcategory?.includes(' -> ')) return ''
   }
 
   return transaction.subcategory
-}
-
-function getLedgerMedium(transaction: CurrentMonthEntry) {
-  if (isTransferTransaction(transaction)) return ''
-  if (isCreditPurchaseTransaction(transaction)) {
-    return transaction.creditAccountName
-  }
-  if (isCreditPaymentTransaction(transaction)) return ''
-
-  return transaction.medium
 }
 
 function CurrentMonthPage() {
@@ -116,6 +128,35 @@ function CurrentMonthPage() {
   const accountById = useMemo(() => {
     return new Map(accounts.map((account) => [account.id, account]))
   }, [accounts])
+  const accountByName = new Map(accounts.map((account) => [account.name, account]))
+  const investmentConfigs = sortInvestmentAccountConfigs(
+    loadInvestmentAccountConfigs(accounts),
+    (config) => accountById.get(config.accountId)?.name ?? '',
+  )
+  const investmentColors = new Map(
+    investmentConfigs.map((config) => [config.accountId, config.color]),
+  )
+  investmentConfigs
+    .filter((config) => accountById.get(config.accountId)?.accountScope === 'investment')
+    .forEach((config, index) => {
+      investmentColors.set(config.accountId, config.color ?? getDefaultInvestmentAccountColor(index))
+    })
+
+  function renderAccountChip({ id, name }: LedgerAccountReference) {
+    const account = (id ? accountById.get(id) : undefined) ??
+      (name ? accountByName.get(name) : undefined)
+    const color = account
+      ? (investmentColors.has(account.id) ? investmentColors.get(account.id) : account.color) ??
+        getDefaultTransactionAccountColor(account.id)
+      : '#aab4c5'
+
+    return (
+      <span className="ledger-account-chip" style={{ '--chip-color': color } as CSSProperties}>
+        {account?.name || name || '—'}
+      </span>
+    )
+  }
+
   const cashTransactionAccounts = useMemo(() => {
     return getCashTransactionAccounts(accounts)
   }, [accounts])
@@ -363,30 +404,30 @@ function CurrentMonthPage() {
     <main className="current-month">
       <header className="month-header">
         <h1>{CURRENT_MONTH_LABEL}</h1>
+
+        <section className="month-summary" aria-label="On the Month">
+          <div className="summary-item">
+            <span>Profit</span>
+            <strong className={profitClass}>
+              {ledgerCurrency.format(profitCents / 100)}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span>Loss</span>
+            <strong className={lossClass}>
+              {ledgerCurrency.format(lossCents / 100)}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span>Net</span>
+            <strong className={realizedProfitLossClass}>
+              {ledgerCurrency.format(realizedProfitLossDisplayCents / 100)}
+            </strong>
+          </div>
+        </section>
       </header>
-
-      <section className="month-summary" aria-label="On the Month">
-        <div className="summary-item">
-          <span>Profit</span>
-          <strong className={profitClass}>
-            ${formatLedgerMoney(profitCents)}
-          </strong>
-        </div>
-
-        <div className="summary-item">
-          <span>Loss</span>
-          <strong className={lossClass}>
-            ${formatLedgerMoney(lossCents)}
-          </strong>
-        </div>
-
-        <div className="summary-item">
-          <span>Net</span>
-          <strong className={realizedProfitLossClass}>
-            ${formatLedgerMoney(realizedProfitLossDisplayCents)}
-          </strong>
-        </div>
-      </section>
 
       <section className="transaction-entry" aria-label="Add Entry">
         <div className="entry-mode-selector" aria-label="Entry type">
@@ -396,6 +437,7 @@ function CurrentMonthPage() {
             type="button"
             onClick={() => setEntryMode('transaction')}
           >
+            <span aria-hidden="true">+</span>
             Transaction
           </button>
 
@@ -420,6 +462,27 @@ function CurrentMonthPage() {
 
         {entryMode === 'transaction' ? (
           <div className="transaction-entry-grid">
+            <label>
+              <span>Amount</span>
+              <div className="amount-field">
+                <span className="currency-symbol">$</span>
+
+                <input
+                  aria-label="Transaction amount"
+                  className="amount-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={amountDisplay}
+                  onChange={(event) =>
+                    handleAmountChange(event.target.value, setAmountDigits)
+                  }
+                  onKeyDown={(event) =>
+                    handleAmountKeyDown(event, setAmountDigits)
+                  }
+                />
+              </div>
+            </label>
+
             <label>
               <span>Category</span>
               <select
@@ -490,27 +553,6 @@ function CurrentMonthPage() {
               </select>
             </label>
 
-            <label>
-              <span aria-hidden="true"></span>
-              <div className="amount-field">
-                <span className="currency-symbol">$</span>
-
-                <input
-                  aria-label="Transaction amount"
-                  className="amount-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={amountDisplay}
-                  onChange={(event) =>
-                    handleAmountChange(event.target.value, setAmountDigits)
-                  }
-                  onKeyDown={(event) =>
-                    handleAmountKeyDown(event, setAmountDigits)
-                  }
-                />
-              </div>
-            </label>
-
             <label className="comments-field">
               <span>Comments</span>
               <input
@@ -535,6 +577,30 @@ function CurrentMonthPage() {
 
         {entryMode === 'transfer' ? (
           <div className="transfer-entry-grid">
+            <label>
+              <span>Amount</span>
+              <div className="amount-field">
+                <span className="currency-symbol">$</span>
+
+                <input
+                  aria-label="Transfer amount"
+                  className="amount-input"
+                  type="text"
+                  inputMode="numeric"
+                  value={transferAmountDisplay}
+                  onChange={(event) =>
+                    handleAmountChange(
+                      event.target.value,
+                      setTransferAmountDigits,
+                    )
+                  }
+                  onKeyDown={(event) =>
+                    handleAmountKeyDown(event, setTransferAmountDigits)
+                  }
+                />
+              </div>
+            </label>
+
             <label>
               <span>From</span>
               <select
@@ -567,30 +633,6 @@ function CurrentMonthPage() {
                   </option>
                 ))}
               </select>
-            </label>
-
-            <label>
-              <span aria-hidden="true"></span>
-              <div className="amount-field">
-                <span className="currency-symbol">$</span>
-
-                <input
-                  aria-label="Transfer amount"
-                  className="amount-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={transferAmountDisplay}
-                  onChange={(event) =>
-                    handleAmountChange(
-                      event.target.value,
-                      setTransferAmountDigits,
-                    )
-                  }
-                  onKeyDown={(event) =>
-                    handleAmountKeyDown(event, setTransferAmountDigits)
-                  }
-                />
-              </div>
             </label>
 
             <label className="comments-field">
@@ -644,6 +686,33 @@ function CurrentMonthPage() {
             {creditAccounts.length > 0 && creditMode === 'purchase' ? (
               <div className="credit-purchase-grid">
                 <label>
+                  <span>Amount</span>
+                  <div className="amount-field">
+                    <span className="currency-symbol">$</span>
+
+                    <input
+                      aria-label="Credit purchase amount"
+                      className="amount-input"
+                      type="text"
+                      inputMode="numeric"
+                      value={creditPurchaseAmountDisplay}
+                      onChange={(event) =>
+                        handleAmountChange(
+                          event.target.value,
+                          setCreditPurchaseAmountDigits,
+                        )
+                      }
+                      onKeyDown={(event) =>
+                        handleAmountKeyDown(
+                          event,
+                          setCreditPurchaseAmountDigits,
+                        )
+                      }
+                    />
+                  </div>
+                </label>
+
+                <label>
                   <span>Credit Account</span>
                   <select
                     aria-label="Credit purchase account"
@@ -686,33 +755,6 @@ function CurrentMonthPage() {
                   </select>
                 </label>
 
-                <label>
-                  <span aria-hidden="true"></span>
-                  <div className="amount-field">
-                    <span className="currency-symbol">$</span>
-
-                    <input
-                      aria-label="Credit purchase amount"
-                      className="amount-input"
-                      type="text"
-                      inputMode="numeric"
-                      value={creditPurchaseAmountDisplay}
-                      onChange={(event) =>
-                        handleAmountChange(
-                          event.target.value,
-                          setCreditPurchaseAmountDigits,
-                        )
-                      }
-                      onKeyDown={(event) =>
-                        handleAmountKeyDown(
-                          event,
-                          setCreditPurchaseAmountDigits,
-                        )
-                      }
-                    />
-                  </div>
-                </label>
-
                 <label className="comments-field">
                   <span>Comments</span>
                   <input
@@ -739,6 +781,33 @@ function CurrentMonthPage() {
 
             {creditAccounts.length > 0 && creditMode === 'payment' ? (
               <div className="credit-payment-grid">
+                <label>
+                  <span>Amount</span>
+                  <div className="amount-field">
+                    <span className="currency-symbol">$</span>
+
+                    <input
+                      aria-label="Credit payment amount"
+                      className="amount-input"
+                      type="text"
+                      inputMode="numeric"
+                      value={creditPaymentAmountDisplay}
+                      onChange={(event) =>
+                        handleAmountChange(
+                          event.target.value,
+                          setCreditPaymentAmountDigits,
+                        )
+                      }
+                      onKeyDown={(event) =>
+                        handleAmountKeyDown(
+                          event,
+                          setCreditPaymentAmountDigits,
+                        )
+                      }
+                    />
+                  </div>
+                </label>
+
                 <label>
                   <span>Pay From</span>
                   <select
@@ -777,33 +846,6 @@ function CurrentMonthPage() {
                   </select>
                 </label>
 
-                <label>
-                  <span aria-hidden="true"></span>
-                  <div className="amount-field">
-                    <span className="currency-symbol">$</span>
-
-                    <input
-                      aria-label="Credit payment amount"
-                      className="amount-input"
-                      type="text"
-                      inputMode="numeric"
-                      value={creditPaymentAmountDisplay}
-                      onChange={(event) =>
-                        handleAmountChange(
-                          event.target.value,
-                          setCreditPaymentAmountDigits,
-                        )
-                      }
-                      onKeyDown={(event) =>
-                        handleAmountKeyDown(
-                          event,
-                          setCreditPaymentAmountDigits,
-                        )
-                      }
-                    />
-                  </div>
-                </label>
-
                 <label className="comments-field">
                   <span>Comments</span>
                   <input
@@ -835,85 +877,99 @@ function CurrentMonthPage() {
         <table className="transaction-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Category</th>
-              <th>Description</th>
-              <th>Account</th>
-              <th>Type</th>
-              <th>$</th>
-              <th>Comments</th>
-              <th></th>
+              <th scope="col" className="ledger-amount">Amount</th>
+              <th scope="col" className="ledger-account-column">Account</th>
+              <th scope="col">Details</th>
+              <th scope="col" className="transaction-action-cell" aria-label="Row actions" />
             </tr>
           </thead>
 
           <tbody>
             {sortedTransactions.map((transaction) => {
+              const amountClass = getTransactionAmountClass(transaction)
+              const amount = Math.abs(transaction.amountCents)
+              const sign = amountClass !== 'negative' && transaction.amountCents < 0 ? '−' : ''
+              const [source, destination] = getLedgerAccounts(transaction)
+              const description = getLedgerDescription(transaction)
+              const comments = transaction.comments
+
               return (
-                <tr className="transaction-row" key={transaction.id}>
-                  <td data-label="Transaction No.">
-                    {transaction.transactionNo}
+                <tr key={transaction.id}>
+                  <td className={`ledger-amount ${amountClass}`}>
+                    <span>{sign}{ledgerCurrency.format(amount / 100)}</span>
                   </td>
-                  <td data-label="Category">
-                    {getLedgerCategory(transaction)}
+                  <td className="ledger-account-column">
+                    <div className="ledger-account-path">
+                      {renderAccountChip(source)}
+                      {destination && (
+                        <>
+                          <span className="ledger-account-arrow" aria-label="to">→</span>
+                          {renderAccountChip(destination)}
+                        </>
+                      )}
+                    </div>
                   </td>
-                  <td data-label="Description">
-                    {getLedgerSubcategory(transaction)}
+                  <td className="ledger-details">
+                    {description && <strong>{description}</strong>}
+                    {description && comments && <span className="ledger-details-dot" aria-hidden="true"> · </span>}
+                    {comments && <span className="ledger-comment">{comments}</span>}
                   </td>
-                  <td data-label="Account">{getLedgerMedium(transaction)}</td>
-                  <td data-label="Type">{transaction.type}</td>
-                  <td
-                    className={`ledger-amount ${getTransactionAmountClass(
-                      transaction,
-                    )}`}
-                    data-label="$"
-                  >
-                    ${formatLedgerMoney(transaction.amountCents)}
-                  </td>
-                  <td data-label="Comments">{transaction.comments}</td>
                   <td className="transaction-action-cell">
-                    <button
-                      aria-label={`Delete transaction ${transaction.transactionNo}`}
-                      className="delete-transaction"
-                      type="button"
-                      onClick={() => deleteTransaction(transaction)}
-                    >
-                      <svg
-                        aria-hidden="true"
-                        fill="none"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        width="14"
+                    <div className="transaction-row-actions">
+                      <details className="transaction-row-details">
+                        <summary aria-label="Transaction details" title="Transaction details">ⓘ</summary>
+                        <dl>
+                          <dt>Category</dt><dd>{transaction.category || '—'}</dd>
+                          <dt>Type</dt><dd>{transaction.type || '—'}</dd>
+                          {transaction.date !== undefined && (
+                            <><dt>Date</dt><dd>{transaction.date}</dd></>
+                          )}
+                        </dl>
+                      </details>
+                      <button
+                        aria-label={isTransferTransaction(transaction) ? 'Delete transfer' : 'Delete transaction'}
+                        className="delete-transaction"
+                        type="button"
+                        onClick={() => deleteTransaction(transaction)}
                       >
-                        <path
-                          d="M3 6h18"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M8 6V4h8v2"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M6 6l1 15h10l1-15"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M10 11v6M14 11v6"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                    </button>
+                        <svg
+                          aria-hidden="true"
+                          fill="none"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          width="14"
+                        >
+                          <path
+                            d="M3 6h18"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M8 6V4h8v2"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M6 6l1 15h10l1-15"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M10 11v6M14 11v6"
+                            stroke="currentColor"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )

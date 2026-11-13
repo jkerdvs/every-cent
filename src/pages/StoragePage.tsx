@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
+import AccountColorPicker from '../components/AccountColorPicker'
 import InvestmentAccountSettings from '../components/InvestmentAccountSettings'
 import {
   createBalanceCategory,
@@ -43,6 +44,7 @@ import {
   createInvestmentAccountConfig,
   deriveInvestmentPositions,
   getDefaultInvestmentAccountColor,
+  getDefaultTransactionAccountColor,
   loadInvestmentAccountConfigs,
   loadInvestmentTransactions,
   saveInvestmentAccountConfigs,
@@ -341,6 +343,57 @@ function StoragePage() {
     investmentAccountConfigs,
     (config) => accountById.get(config.accountId)?.name ?? '',
   )
+  const investmentConfigByAccountId = new Map(
+    sortedInvestmentAccountConfigs.map((config) => [config.accountId, config]),
+  )
+  const investmentColorIndexById = new Map(
+    sortedInvestmentAccountConfigs
+      .filter((config) => accountById.get(config.accountId)?.accountScope === 'investment')
+      .map((config, index) => [config.accountId, index]),
+  )
+  const transferOnlyAccounts = accounts.filter(
+    (account) => account.accountScope === 'investment' &&
+      account.category !== 'Credit' && !investmentConfigByAccountId.has(account.id),
+  )
+
+  function getDefaultAccountColor(accountId: string) {
+    const investmentIndex = investmentColorIndexById.get(accountId)
+
+    return investmentIndex === undefined
+      ? getDefaultTransactionAccountColor(accountId)
+      : getDefaultInvestmentAccountColor(investmentIndex)
+  }
+
+  function renderAccountColorSettings(account: BalanceAccount) {
+    const config = investmentConfigByAccountId.get(account.id)
+
+    return (
+      <details className="investment-settings">
+        <summary aria-label={`${account.name} account color`}>Color</summary>
+        <AccountColorPicker
+          color={config ? config.color : account.color ?? null}
+          defaultColor={getDefaultAccountColor(account.id)}
+          onChange={(color) => {
+            if (config) {
+              setInvestmentAccountConfigs((currentConfigs) =>
+                currentConfigs.map((item) =>
+                  item.id === config.id ? { ...item, color } : item,
+                ),
+              )
+              return
+            }
+
+            setAccounts((currentAccounts) =>
+              currentAccounts.map((item) =>
+                item.id === account.id ? { ...item, color: color ?? undefined } : item,
+              ),
+            )
+          }}
+        />
+      </details>
+    )
+  }
+
   const investmentTransactions = loadInvestmentTransactions()
   const investmentPositions = deriveInvestmentPositions(
     investmentTransactions,
@@ -834,62 +887,67 @@ function StoragePage() {
 
             <tbody>
               {transactionAccounts.map((account) => (
-                <tr key={account.id}>
-                  <td>
-                    <select
-                      aria-label={`${account.name} account category`}
-                      value={account.category}
-                      onChange={(event) =>
-                        updateAccountType(account.id, event.target.value)
-                      }
-                    >
-                      {sortedAccountCategories.map((item) => (
-                        <option key={item.id} value={item.name}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  <td>
-                    <input
-                      aria-label={`${account.name} account name`}
-                      type="text"
-                      value={account.name}
-                      onChange={(event) =>
-                        updateAccountName(account.id, event.target.value)
-                      }
-                    />
-                  </td>
-
-                  <td>
-                    <div className="storage-money-cell">
-                      <span>$</span>
-                      <input
-                        aria-label={`${account.name} starting balance`}
-                        step="0.01"
-                        type="number"
-                        value={formatBaseBalanceInput(
-                          account.baseBalanceCents,
-                        )}
+                <Fragment key={account.id}>
+                  <tr>
+                    <td>
+                      <select
+                        aria-label={`${account.name} account category`}
+                        value={account.category}
                         onChange={(event) =>
-                          updateBaseBalance(account.id, event.target.value)
+                          updateAccountType(account.id, event.target.value)
+                        }
+                      >
+                        {sortedAccountCategories.map((item) => (
+                          <option key={item.id} value={item.name}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td>
+                      <input
+                        aria-label={`${account.name} account name`}
+                        type="text"
+                        value={account.name}
+                        onChange={(event) =>
+                          updateAccountName(account.id, event.target.value)
                         }
                       />
-                    </div>
-                  </td>
+                    </td>
 
-                  <td>
-                    <button
-                      aria-label={`Delete ${account.name} account`}
-                      className="delete-storage-account"
-                      type="button"
-                      onClick={() => deleteAccount(account)}
-                    >
-                      <TrashIcon />
-                    </button>
-                  </td>
-                </tr>
+                    <td>
+                      <div className="storage-money-cell">
+                        <span>$</span>
+                        <input
+                          aria-label={`${account.name} starting balance`}
+                          step="0.01"
+                          type="number"
+                          value={formatBaseBalanceInput(
+                            account.baseBalanceCents,
+                          )}
+                          onChange={(event) =>
+                            updateBaseBalance(account.id, event.target.value)
+                          }
+                        />
+                      </div>
+                    </td>
+
+                    <td>
+                      <button
+                        aria-label={`Delete ${account.name} account`}
+                        className="delete-storage-account"
+                        type="button"
+                        onClick={() => deleteAccount(account)}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </td>
+                  </tr>
+                  <tr className="investment-settings-row-container">
+                    <td colSpan={4}>{renderAccountColorSettings(account)}</td>
+                  </tr>
+                </Fragment>
               ))}
 
               <tr className="storage-entry-row">
@@ -961,7 +1019,7 @@ function StoragePage() {
             </thead>
 
             <tbody>
-              {sortedInvestmentAccountConfigs.map((config, index) => {
+              {sortedInvestmentAccountConfigs.map((config) => {
                 const account = accountById.get(config.accountId)
 
                 if (!account) return null
@@ -1048,7 +1106,7 @@ function StoragePage() {
                         <InvestmentAccountSettings
                           accountName={account.name}
                           color={config.color}
-                          defaultColor={getDefaultInvestmentAccountColor(index)}
+                          defaultColor={getDefaultAccountColor(account.id)}
                           shareGoals={config.shareGoals}
                           onChange={(settings) =>
                             setInvestmentAccountConfigs((currentConfigs) =>
@@ -1131,6 +1189,13 @@ function StoragePage() {
         >
           +
         </button>
+
+        {transferOnlyAccounts.map((account) => (
+          <div className="transfer-account-color-settings" key={account.id}>
+            <span>{account.name}</span>
+            {renderAccountColorSettings(account)}
+          </div>
+        ))}
 
         {investmentAccountMessage ? (
           <p className="storage-validation">{investmentAccountMessage}</p>

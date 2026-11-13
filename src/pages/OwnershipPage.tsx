@@ -105,7 +105,7 @@ function getInvestmentAccounts() {
     .flatMap((config) => {
       const account = accountById.get(config.accountId)
 
-      return account ? [{ ...account, color: config.color, shareGoals: config.shareGoals }] : []
+      return account ? [{ ...account, color: config.color ?? undefined, shareGoals: config.shareGoals }] : []
     })
 }
 

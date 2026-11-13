@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { SubmitEvent } from 'react'
-import { parseInvestmentAccountColor } from '../data/ownership'
+import AccountColorPicker from './AccountColorPicker'
 import type { InvestmentAccountConfig, ShareGoal } from '../data/ownership'
 
 type ShareGoalFormProps = {
@@ -74,61 +74,19 @@ type InvestmentAccountSettingsProps = {
 
 export default function InvestmentAccountSettings({
   accountName,
-  color: customColor,
+  color,
   defaultColor,
   shareGoals,
   onChange,
 }: InvestmentAccountSettingsProps) {
-  const [hexDraft, setHexDraft] = useState<string | null>(null)
-  const color = customColor ?? defaultColor
-
   return (
     <details className="investment-settings">
       <summary aria-label={`${accountName} color and share goals`}>Color and share goals</summary>
-      <div className="investment-settings-row">
-        <label>
-          Account color
-          <input
-            type="color"
-            value={color}
-            onChange={(event) => {
-              setHexDraft(null)
-              onChange({ color: event.target.value })
-            }}
-          />
-        </label>
-        <input
-          aria-label="Hex color"
-          aria-invalid={hexDraft !== null && !parseInvestmentAccountColor(hexDraft)}
-          className="investment-color-hex"
-          maxLength={7}
-          placeholder="#RRGGBB"
-          spellCheck={false}
-          value={hexDraft ?? color}
-          onBlur={() => setHexDraft(null)}
-          onChange={(event) => {
-            const value = event.target.value
-            const validColor = parseInvestmentAccountColor(value)
-
-            setHexDraft(value)
-            if (validColor) onChange({ color: validColor })
-          }}
-        />
-        <span
-          aria-hidden="true"
-          className="investment-color-swatch"
-          style={{ backgroundColor: color }}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            setHexDraft(null)
-            onChange({ color: null })
-          }}
-        >
-          Reset to default
-        </button>
-      </div>
+      <AccountColorPicker
+        color={color}
+        defaultColor={defaultColor}
+        onChange={(color) => onChange({ color })}
+      />
       <div className="investment-settings-goals">
         <h3>Share goals</h3>
         {shareGoals.map((goal) => (

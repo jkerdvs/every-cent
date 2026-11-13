@@ -7,6 +7,7 @@ import type { CurrentMonthEntry } from './currentMonth'
 import {
   getInvestmentCashAdjustmentForAccount,
   INVESTMENT_ACCOUNTS_STORAGE_KEY,
+  parseInvestmentAccountColor,
 } from './ownership'
 import { getOptionsCashAdjustmentForAccount } from './system'
 
@@ -25,6 +26,7 @@ export type BalanceAccount = {
   category: BalanceCategory
   accountScope: AccountScope
   baseBalanceCents: number
+  color?: string
 }
 
 export type DisplayBalanceAccount = BalanceAccount & {
@@ -195,7 +197,10 @@ export function loadBalanceAccounts() {
             ? account.baseBalanceCents
             : account.balanceCents
 
+        const color = parseInvestmentAccountColor(account.color)
+
         return {
+          ...(color ? { color } : {}),
           id: account.id ?? `balance-account-${Date.now()}-${index}`,
           name: account.name?.trim() ?? '',
           category:

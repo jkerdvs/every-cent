@@ -63,6 +63,15 @@ export function getDefaultInvestmentAccountColor(index: number) {
   return accountColors[index % accountColors.length]
 }
 
+export function getDefaultTransactionAccountColor(accountId: string) {
+  const palette = ['#80a9d8', '#83ba8d', '#dfb477', '#9b92c8', '#7dbbb9', '#d59e8c']
+  let index = 0
+  for (const character of accountId) {
+    index = (index * 31 + character.charCodeAt(0)) % palette.length
+  }
+  return palette[index]
+}
+
 export function parseInvestmentAccountColor(value: unknown) {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
     ? value.toLowerCase()
