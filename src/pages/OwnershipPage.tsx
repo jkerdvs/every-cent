@@ -12,6 +12,7 @@ import {
   formatMoneyInput,
   formatShares,
   getAmountInvestedByAccount,
+  getDefaultInvestmentAccountColor,
   loadHoldings,
   loadInvestmentAccountConfigs,
   loadInvestmentTransactions,
@@ -27,13 +28,14 @@ import type {
 } from '../data/ownership'
 import './OwnershipPage.css'
 
-const accountColors = ['#759784', '#8e9cb4', '#b99473', '#a393ac', '#7d9e9e', '#b5a66f']
 const otherAccountColor = '#9ca2a5'
 const formatAllocation = new Intl.NumberFormat('en-US', {
   style: 'percent',
   maximumFractionDigits: 1,
 })
-const spyShareGoal = 100
+const formatGoalShares = new Intl.NumberFormat('en-US', {
+  maximumSignificantDigits: 15,
+})
 
 function parseDatePickerInput(value: string) {
   const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -100,8 +102,11 @@ function getInvestmentAccounts() {
     configs,
     (config) => accountById.get(config.accountId)?.name ?? '',
   )
-    .map((config) => accountById.get(config.accountId))
-    .filter((account): account is BalanceAccount => Boolean(account))
+    .flatMap((config) => {
+      const account = accountById.get(config.accountId)
+
+      return account ? [{ ...account, color: config.color, shareGoals: config.shareGoals }] : []
+    })
 }
 
 function OwnershipPage() {
@@ -172,7 +177,7 @@ function OwnershipPage() {
   const accountSummaries = investmentAccounts.map((account, index) => ({
     account,
     amountCents: amountInvestedByAccount.get(account.id) ?? 0,
-    color: accountColors[index % accountColors.length],
+    color: account.color ?? getDefaultInvestmentAccountColor(index),
   }))
   const allocation = accountSummaries.map(({ account, amountCents, color }) => ({
     id: `account:${account.id}`,
@@ -883,11 +888,6 @@ function OwnershipPage() {
               return a.ticker.localeCompare(b.ticker)
             })
 
-          const spyShares =
-            account.name.toLowerCase() === 'equity'
-              ? accountPositions.find((position) => position.ticker === 'SPY')?.shares ?? 0
-              : null
-
           return (
             <section
               className="ownership-account-section"
@@ -928,20 +928,26 @@ function OwnershipPage() {
                 </tbody>
               </table>
 
-              {spyShares !== null && (
-                <div className="ownership-share-goal">
-                  <div>
-                    <span>SPY share goal</span>
-                    <span>{formatShares(spyShares)} / {spyShareGoal} shares</span>
+              {account.shareGoals.map(({ ticker, targetShares }) => {
+                const shares = accountPositions.find((position) => position.ticker === ticker)?.shares ?? 0
+                const current = formatGoalShares.format(shares)
+                const target = formatGoalShares.format(targetShares)
+
+                return (
+                  <div className="ownership-share-goal" key={ticker}>
+                    <div>
+                      <span>{ticker} share goal</span>
+                      <span>{current} / {target} shares</span>
+                    </div>
+                    <progress
+                      aria-label={`${ticker} share goal`}
+                      aria-valuetext={`${current} of ${target} shares`}
+                      max={targetShares}
+                      value={Math.min(shares, targetShares)}
+                    />
                   </div>
-                  <progress
-                    aria-label="SPY share goal"
-                    aria-valuetext={`${formatShares(spyShares)} of ${spyShareGoal} shares`}
-                    max={spyShareGoal}
-                    value={Math.min(spyShares, spyShareGoal)}
-                  />
-                </div>
-              )}
+                )
+              })}
             </section>
           )
         })}

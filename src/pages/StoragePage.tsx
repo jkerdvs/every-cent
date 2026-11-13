@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
+import InvestmentAccountSettings from '../components/InvestmentAccountSettings'
 import {
   createBalanceCategory,
   formatBaseBalanceInput,
@@ -41,6 +42,7 @@ import type {
 import {
   createInvestmentAccountConfig,
   deriveInvestmentPositions,
+  getDefaultInvestmentAccountColor,
   loadInvestmentAccountConfigs,
   loadInvestmentTransactions,
   saveInvestmentAccountConfigs,
@@ -959,87 +961,108 @@ function StoragePage() {
             </thead>
 
             <tbody>
-              {sortedInvestmentAccountConfigs.map((config) => {
+              {sortedInvestmentAccountConfigs.map((config, index) => {
                 const account = accountById.get(config.accountId)
 
                 if (!account) return null
 
                 return (
-                  <tr key={config.id}>
-                    <td>
-                      <input
-                        aria-label={`${account.name} investment order`}
-                        type="number"
-                        value={config.order}
-                        onChange={(event) =>
-                          updateInvestmentAccountOrder(
-                            config.id,
-                            event.target.value,
-                          )
-                        }
-                      />
-                    </td>
-
-                    <td>
-                      <input
-                        aria-label={`${account.name} investment account name`}
-                        type="text"
-                        value={account.name}
-                        onChange={(event) =>
-                          updateInvestmentAccountName(
-                            account.id,
-                            event.target.value,
-                          )
-                        }
-                      />
-                    </td>
-
-                    <td>
-                      <div className="storage-money-cell">
-                        <span>$</span>
+                  <Fragment key={config.id}>
+                    <tr>
+                      <td>
                         <input
-                          aria-label={`${account.name} starting cash`}
-                          step="0.01"
+                          aria-label={`${account.name} investment order`}
                           type="number"
-                          value={formatBaseBalanceInput(
-                            config.startingCashCents,
-                          )}
+                          value={config.order}
                           onChange={(event) =>
-                            updateInvestmentAccountStartingCash(
+                            updateInvestmentAccountOrder(
                               config.id,
                               event.target.value,
                             )
                           }
                         />
-                      </div>
-                    </td>
+                      </td>
 
-                    <td>
-                      <input
-                        aria-label={`${account.name} options trading`}
-                        checked={config.optionsTrading}
-                        className="storage-checkbox"
-                        type="checkbox"
-                        onChange={(event) =>
-                          updateInvestmentAccountOptionsTrading(
-                            config.id,
-                            event.target.checked,
-                          )
-                        }
-                      />
-                    </td>
+                      <td>
+                        <input
+                          aria-label={`${account.name} investment account name`}
+                          type="text"
+                          value={account.name}
+                          onChange={(event) =>
+                            updateInvestmentAccountName(
+                              account.id,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </td>
 
-                    <td>
-                      <button
-                        aria-label={`Delete ${account.name} investment account`}
-                        className="delete-storage-account"
-                        type="button"
-                        onClick={() => deleteInvestmentAccount(config)}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </td>
-                  </tr>
+                      <td>
+                        <div className="storage-money-cell">
+                          <span>$</span>
+                          <input
+                            aria-label={`${account.name} starting cash`}
+                            step="0.01"
+                            type="number"
+                            value={formatBaseBalanceInput(
+                              config.startingCashCents,
+                            )}
+                            onChange={(event) =>
+                              updateInvestmentAccountStartingCash(
+                                config.id,
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                      </td>
+
+                      <td>
+                        <input
+                          aria-label={`${account.name} options trading`}
+                          checked={config.optionsTrading}
+                          className="storage-checkbox"
+                          type="checkbox"
+                          onChange={(event) =>
+                            updateInvestmentAccountOptionsTrading(
+                              config.id,
+                              event.target.checked,
+                            )
+                          }
+                        />
+                      </td>
+
+                      <td>
+                        <button
+                          aria-label={`Delete ${account.name} investment account`}
+                          className="delete-storage-account"
+                          type="button"
+                          onClick={() => deleteInvestmentAccount(config)}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr className="investment-settings-row-container">
+                      <td colSpan={5}>
+                        <InvestmentAccountSettings
+                          accountName={account.name}
+                          color={config.color}
+                          defaultColor={getDefaultInvestmentAccountColor(index)}
+                          shareGoals={config.shareGoals}
+                          onChange={(settings) =>
+                            setInvestmentAccountConfigs((currentConfigs) =>
+                              currentConfigs.map((currentConfig) =>
+                                currentConfig.id === config.id
+                                  ? { ...currentConfig, ...settings }
+                                  : currentConfig,
+                              ),
+                            )
+                          }
+                        />
+                      </td>
+                    </tr>
+                  </Fragment>
                 )
               })}
 

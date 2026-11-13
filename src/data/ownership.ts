@@ -42,12 +42,50 @@ export type InvestmentPosition = {
   costBasisCents: number
 }
 
+export type ShareGoal = {
+  ticker: string
+  targetShares: number
+}
+
 export type InvestmentAccountConfig = {
   id: string
   accountId: string
   order: number
   startingCashCents: number
   optionsTrading: boolean
+  color: string | null
+  shareGoals: ShareGoal[]
+}
+
+const accountColors = ['#759784', '#8e9cb4', '#b99473', '#a393ac', '#7d9e9e', '#b5a66f']
+
+export function getDefaultInvestmentAccountColor(index: number) {
+  return accountColors[index % accountColors.length]
+}
+
+export function parseInvestmentAccountColor(value: unknown) {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toLowerCase()
+    : null
+}
+
+function loadShareGoals(value: unknown): ShareGoal[] {
+  if (!Array.isArray(value)) return []
+
+  const goalsByTicker = new Map<string, ShareGoal>()
+
+  for (const goal of value) {
+    const ticker = typeof goal?.ticker === 'string' ? goal.ticker.trim().toUpperCase() : ''
+    const targetShares = goal?.targetShares
+
+    if (!ticker || !Number.isFinite(targetShares) || targetShares <= 0) continue
+
+    if (!goalsByTicker.has(ticker)) {
+      goalsByTicker.set(ticker, { ticker, targetShares })
+    }
+  }
+
+  return [...goalsByTicker.values()]
 }
 
 export const HOLDINGS_STORAGE_KEY = 'every-cent-ownership-holdings'
@@ -108,6 +146,8 @@ export function createInvestmentAccountConfig(
     order,
     startingCashCents,
     optionsTrading,
+    color: null,
+    shareGoals: [],
   }
 }
 
@@ -338,6 +378,8 @@ export function loadInvestmentAccountConfigs(
               ? Math.round(config.startingCashCents)
               : 0,
           optionsTrading: config.optionsTrading === true,
+          color: parseInvestmentAccountColor(config.color),
+          shareGoals: loadShareGoals(config.shareGoals),
         }
       })
       .filter((config): config is InvestmentAccountConfig =>
