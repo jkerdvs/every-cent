@@ -100,9 +100,8 @@
 }
 
 .ownership-account-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  column-count: 2;
+  column-gap: 16px;
   margin-top: 18px;
 }
 
@@ -111,6 +110,8 @@
 }
 
 .ownership-account-section {
+  break-inside: avoid;
+  margin-bottom: 16px;
   overflow: hidden;
   border: 1px solid var(--ownership-rule);
   border-radius: 12px;
@@ -301,7 +302,12 @@
   }
 
   .ownership-account-grid {
-    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+    column-count: auto;
     gap: 12px;
+  }
+
+  .ownership-account-section {
+    margin-bottom: 0;
   }
 }
